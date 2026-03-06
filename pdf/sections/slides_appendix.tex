@@ -1,0 +1,263 @@
+\begin{frame}[t]
+  \framesubtitle{Appendix}
+  \frametitle{Backup roadmap}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.48\textwidth}
+    \begin{itemize}
+      \item DDPM vs stochastic interpolants
+      \item velocity / score relations
+      \item CKNNA and linear probing
+      \item DiT/SiT block details
+      \item DiT analysis and more ablations
+    \end{itemize}
+  \column{0.48\textwidth}
+    \begin{itemize}
+      \item hyperparameters and compute
+      \item detailed quantitative tables
+      \item 512x512 extension
+      \item text-to-image extension
+      \item feature maps and extra qualitative samples
+    \end{itemize}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[t]
+  \framesubtitle{Appendix}
+  \frametitle{DDPM vs stochastic interpolants}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.48\textwidth}
+    \textbf{DDPM view}
+    \begin{itemize}
+      \item discrete-time forward corruption with \(\beta_t\)
+      \item learn reverse transitions \(p(x_{t-1}\mid x_t)\)
+      \item common objective predicts noise \(\epsilon\)
+    \end{itemize}
+    \begin{align*}
+      \mathcal{L}_{\text{simple}}
+      = \mathbb{E}_{x^\ast,\epsilon,t}\left\|\epsilon-\epsilon_\theta(x_t,t)\right\|_2^2
+    \end{align*}
+  \column{0.48\textwidth}
+    \textbf{Stochastic interpolant view}
+    \begin{itemize}
+      \item continuous path between data and Gaussian noise
+      \item learn velocity or score over continuous time
+      \item cleaner interface for flow-matching style models such as SiT
+    \end{itemize}
+    \begin{align*}
+      x_t = \alpha_t x^\ast + \sigma_t \epsilon,\qquad
+      \dot{x}_t = v(x_t,t)
+    \end{align*}
+    \vspace{0.12cm}
+    {\small REPA is compatible with both views because it attaches to hidden representations rather than a specific sampler.}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[t]
+  \framesubtitle{Appendix}
+  \frametitle{Velocity and score relations}
+  \begin{align*}
+    v(x,t)
+    &= \dot{\alpha}_t \mathbb{E}[x^\ast \mid x_t=x] + \dot{\sigma}_t \mathbb{E}[\epsilon \mid x_t=x] \\
+    \mathcal{L}_{\text{velocity}}(\theta)
+    &= \mathbb{E}_{x^\ast,\epsilon,t}
+    \left\|v_\theta(x_t,t)-\dot{\alpha}_t x^\ast-\dot{\sigma}_t \epsilon\right\|_2^2
+  \end{align*}
+  \begin{align*}
+    s(x,t) &= -\sigma_t^{-1}\mathbb{E}[\epsilon\mid x_t=x] \\
+    s(x,t) &= \sigma_t^{-1}\cdot
+    \frac{\alpha_t v(x,t)-\dot{\alpha}_t x}
+         {\dot{\alpha}_t \sigma_t - \alpha_t \dot{\sigma}_t}
+  \end{align*}
+  \vspace{0.1cm}
+  \callout{\textbf{Why these equations matter for REPA.} The paper keeps the denoising math intact.
+  REPA only adds feature supervision on top of the same hidden states used to solve these objectives.}
+\end{frame}
+
+\begin{frame}[t]
+  \framesubtitle{Appendix}
+  \frametitle{What are CKNNA and linear probing measuring?}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.52\textwidth}
+    \textbf{Linear probing}
+    \begin{itemize}
+      \item Freeze the representation.
+      \item Train a linear classifier on ImageNet labels.
+      \item Higher accuracy implies stronger semantic separability.
+    \end{itemize}
+    \vspace{0.16cm}
+    \textbf{CKNNA}
+    \begin{itemize}
+      \item A relaxed alignment metric related to CKA.
+      \item Focuses on mutual nearest neighbors rather than all pairwise relationships.
+      \item More forgiving when comparing representations from different model families.
+    \end{itemize}
+  \column{0.44\textwidth}
+    \begin{align*}
+      \mathrm{CKA}(K,L)
+      =
+      \frac{\mathrm{HSIC}(K,L)}
+      {\sqrt{\mathrm{HSIC}(K,K)\mathrm{HSIC}(L,L)}}
+    \end{align*}
+    \begin{beamercolorbox}[wd=\linewidth,rounded=true,sep=0.18cm]{block body}
+      \textbf{How the paper uses them}
+      \begin{itemize}
+        \item probing: semantic gap
+        \item CKNNA: representational alignment
+      \end{itemize}
+    \end{beamercolorbox}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[t]
+  \framesubtitle{Appendix}
+  \frametitle{DiT / SiT block details}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.42\textwidth}
+    \FigNine[width=\linewidth]
+  \column{0.54\textwidth}
+    \begin{itemize}
+      \item Patchified latent tokens go through repeated attention + MLP blocks.
+      \item AdaLN-zero style modulation injects timestep and condition information.
+      \item REPA taps one intermediate hidden state and sends it to a separate projection MLP.
+      \item The projection head is a training-time adapter into the external encoder feature space.
+    \end{itemize}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[t]
+  \framesubtitle{Appendix}
+  \frametitle{The same behavior also appears in DiT}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.47\textwidth}
+    \FigTen[width=\linewidth]
+  \column{0.49\textwidth}
+    \begin{itemize}
+      \item DiT hidden states also show a semantic gap relative to DINOv2.
+      \item Alignment is present but weak, just like in SiT.
+      \item So the paper's argument is not a SiT-only artifact; it generalizes across denoising transformer families.
+    \end{itemize}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[t]
+  \framesubtitle{Appendix}
+  \frametitle{More ablations: timesteps, target encoders, and \(\lambda\)}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.58\textwidth}
+    \papercrop[width=\linewidth]{10}{70bp 320bp 60bp 88bp}
+  \column{0.38\textwidth}
+    \begin{itemize}
+      \item REPA improves the representation gap across multiple noise levels.
+      \item Alignment gains are not specific to DINOv2; MAE and MoCov3 also show the trend.
+      \item Performance is fairly robust once \(\lambda\) reaches about \(0.5\).
+    \end{itemize}
+    \vspace{0.14cm}
+    \begin{tabular}{C{1.0cm}C{1.0cm}C{1.0cm}C{1.0cm}}
+      \toprule
+      \(\lambda\) & 0.25 & 0.5 & 1.0 \\
+      \midrule
+      FID & 8.6 & 7.9 & 7.8 \\
+      \bottomrule
+    \end{tabular}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[t]
+  \framesubtitle{Appendix}
+  \frametitle{Hyperparameters and compute details}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.60\textwidth}
+    \begin{tabular}{L{2.8cm}L{3.8cm}}
+      \toprule
+      Category & Setup used in the paper \\
+      \midrule
+      Backbone & same DiT / SiT architecture as original papers \\
+      Input & ImageNet 256x256, VAE latents of size \(32\times32\times4\) \\
+      Optimizer & AdamW, learning rate \(1\times 10^{-4}\), no weight decay \\
+      Batch size & 256 \\
+      Sampler & Euler-Maruyama, \(w_t=\sigma_t\), NFE \(=250\) \\
+      Projection head & 3-layer MLP with SiLU \\
+      Training hardware & 8x H100 80GB, about 5.4 step/s \\
+      \bottomrule
+    \end{tabular}
+  \column{0.34\textwidth}
+    \callout{\textbf{Engineering note.} The paper mentions that training can be sped up further by precomputing pretrained-encoder features.}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[t]
+  \framesubtitle{Appendix}
+  \frametitle{Detailed quantitative results}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.48\textwidth}
+    \begin{tabular}{L{2.1cm}C{1.0cm}C{0.9cm}C{1.0cm}}
+      \toprule
+      Model & Iter. & FID & Acc. \\
+      \midrule
+      SiT-B/2 + REPA & 400K & 24.4 & 61.2 \\
+      SiT-L/2 + REPA & 400K & 10.0 & 69.4 \\
+      SiT-XL/2 + REPA & 400K & 7.9 & 70.3 \\
+      SiT-XL/2 + REPA & 4M & 5.9 & 74.6 \\
+      \bottomrule
+    \end{tabular}
+    \vspace{0.16cm}
+    {\small Larger models gain more from REPA, and the advantage keeps growing with longer training.}
+    \column{0.48\textwidth}
+    \begin{tabular}{L{2.5cm}C{0.8cm}C{0.9cm}}
+      \toprule
+      Setting & \(w\) & FID \\
+      \midrule
+      Vanilla SiT-XL/2 & 1.50 & 2.06 \\
+      REPA & 1.30 & 1.80 \\
+      REPA + interval [0,0.75] & 2.00 & 1.78 \\
+      REPA + interval [0,0.70] & 1.80 & 1.42 \\
+      \bottomrule
+    \end{tabular}
+    \vspace{0.16cm}
+    {\small Guidance interval plus REPA produces the best reported ImageNet 256x256 result in the paper.}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[t]
+  \framesubtitle{Appendix}
+  \frametitle{Extension to ImageNet 512x512}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.60\textwidth}
+    \AppFiveTwelve[width=\linewidth]
+  \column{0.36\textwidth}
+    \begin{itemize}
+      \item Same setup idea, larger latent input.
+      \item REPA already beats vanilla SiT-XL/2 with \(>3\times\) fewer iterations.
+      \item Shows the method scales beyond the 256x256 headline experiment.
+    \end{itemize}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[t]
+  \framesubtitle{Appendix}
+  \frametitle{Text-to-image extension}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.64\textwidth}
+    \AppTTwoI[width=\linewidth]
+  \column{0.32\textwidth}
+    \begin{itemize}
+      \item The paper also applies REPA to MMDiT on MS-COCO.
+      \item Reported FID improves from 6.05 to 4.73 in the ODE setup, and from 5.30 to 4.14 in the SDE setup.
+      \item This suggests the alignment idea remains useful even when text conditioning is present.
+    \end{itemize}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[t]
+  \framesubtitle{Appendix}
+  \frametitle{Feature maps and extra qualitative samples}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.62\textwidth}
+    \AppFeature[width=\linewidth]
+  \column{0.34\textwidth}
+    \AppQualTop[width=\linewidth]
+    \vspace{0.14cm}
+
+    \AppQualBottom[width=\linewidth]
+  \end{columns}
+\end{frame}

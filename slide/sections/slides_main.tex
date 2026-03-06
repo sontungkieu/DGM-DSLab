@@ -1,0 +1,994 @@
+% ============================================================
+%  REPA – Main Slides (English) with Vietnamese speaker notes
+% ============================================================
+
+% ------------------------------------------------------------------
+% SLIDE 1 – TITLE
+% ------------------------------------------------------------------
+\begin{frame}[plain]
+  \vspace{0.4cm}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.61\textwidth}
+    {\color{signal}\large Paper Presentation\par}
+    \vspace{0.2cm}
+    {\color{accent}\bfseries\fontsize{19}{22}\selectfont
+    Representation Alignment\par
+    for Generation:\par
+    Training Diffusion Transformers\par
+    Is Easier Than You Think\par}
+    \vspace{0.28cm}
+    {\large Yu et al.\hspace{0.25cm}|\hspace{0.25cm}ICLR 2025\par}
+    \vspace{0.28cm}
+    \begin{beamercolorbox}[wd=\linewidth,rounded=true,sep=0.28cm]{block body}
+      \textbf{Talk outline.} Why diffusion transformers hit a representation bottleneck,
+      how REPA turns it into an explicit alignment objective, and why this yields
+      both faster convergence and state-of-the-art FID.
+    \end{beamercolorbox}
+    \vfill
+    {\small Figures are reproduced from the original paper.}
+    \column{0.37\textwidth}
+    \begin{tikzpicture}[every node/.style={inner sep=0pt}]
+      \node[draw=accent,fill=accentlight,rounded corners=12pt,
+            minimum width=5.0cm,minimum height=6.6cm] (card) {};
+      \node[anchor=north west,text width=4.4cm,align=left]
+        at ($(card.north west)+(0.28cm,-0.32cm)$) {
+        \textbf{Key claims}
+        \begin{itemize}
+          \item Better internal features make generation easier.
+          \item Align early hidden states with pretrained visual semantics.
+          \item SiT-XL/2 reaches strong quality in far fewer training steps.
+        \end{itemize}
+      };
+      \node[draw=signal,fill=paperbg,rounded corners=10pt,
+            minimum width=4.3cm,minimum height=1.4cm]
+        at ($(card.south)+(0,1.0cm)$) {
+        \begin{tabular}{c}
+          \textbf{Headline result}\\
+          FID \(=1.42\) on ImageNet 256\(\times\)256
+        \end{tabular}
+      };
+    \end{tikzpicture}
+  \end{columns}
+  \note{
+    Xin chào mọi người. Hôm nay mình sẽ trình bày về paper
+    ``Representation Alignment for Generation'' hay còn gọi tắt là REPA,
+    được công bố tại ICLR 2025.
+
+    Ý tưởng chính của bài báo rất đơn giản nhưng hiệu quả:
+    thay vì để diffusion transformer tự học biểu diễn ngữ nghĩa chỉ qua
+    việc khử nhiễu, ta ép buộc các hidden state ở tầng sớm phải
+    căn chỉnh (align) với biểu diễn từ một encoder đã được pretrain tốt
+    như DINOv2.
+
+    Kết quả đạt FID 1.42 trên ImageNet 256x256 — state-of-the-art
+    tại thời điểm công bố.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 2 – ONE-SLIDE SUMMARY
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{Overview}
+  \frametitle{One-slide summary: make representation learning explicit}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.47\textwidth}
+    \callout{\textbf{Core idea.} Instead of hoping the diffusion transformer discovers
+    strong semantics through denoising alone, REPA \emph{explicitly} aligns an early
+    hidden state with a clean representation from a pretrained encoder (DINOv2).}
+    \vspace{0.18cm}
+    \begin{itemize}
+      \item Hidden states become semantically stronger early in training.
+      \item Later layers can focus on high-frequency detail.
+      \item The same model family gets both faster convergence and better quality.
+    \end{itemize}
+    \vspace{0.1cm}
+    \begin{beamercolorbox}[wd=\linewidth,rounded=true,sep=0.18cm]{block body}
+      \textbf{Headline.} SiT-XL/2 + REPA matches or exceeds the vanilla 7M-step
+      regime in a fraction of the training budget.
+    \end{beamercolorbox}
+  \column{0.51\textwidth}
+    \FigOne[width=\linewidth]
+  \end{columns}
+  \note{
+    Đây là slide tổng quan. Ý tưởng cốt lõi của REPA: diffusion
+    transformer khi train bình thường chỉ có tín hiệu giám sát từ bài
+    toán khử nhiễu — đây là tín hiệu yếu để học biểu diễn ngữ nghĩa.
+
+    REPA thêm một auxiliary loss để ép hidden state ở block sớm phải
+    giống với feature từ DINOv2 — một encoder đã được train trên dữ liệu
+    không nhãn với khả năng biểu diễn ngữ nghĩa rất tốt.
+
+    Kết quả: SiT-XL/2 + REPA chỉ cần khoảng 400K iteration để đạt
+    chất lượng mà phiên bản gốc cần 7 triệu iteration. Hình bên phải
+    là Figure 1 của paper thể hiện tổng quan phương pháp.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 3 – PROBLEM STATEMENT
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{Motivation}
+  \frametitle{Why representation quality is the bottleneck}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.53\textwidth}
+    \begin{itemize}
+      \item A denoising model must recover both \textit{semantics} and
+            \textit{fine detail} from noisy latents.
+      \item Pure reconstruction pressure is \textbf{weak supervision} for
+            learning noise-invariant, discriminative features.
+      \item A large transformer wastes training budget rediscovering semantics
+            that modern SSL encoders already know.
+    \end{itemize}
+    \vspace{0.18cm}
+    \callout{\textbf{Hypothesis.} The hard part of training DiT/SiT is not
+    solving the denoising objective \emph{per se} — it is learning an internal
+    representation good enough to support generation.}
+    \vspace{0.18cm}
+    {\small Denoising gives an implicit encoder \(f_\theta(z_t)=h_t\), but
+    nothing guarantees \(h_t\) will align with the semantic structure of
+    strong visual encoders.}
+  \column{0.43\textwidth}
+    \begin{tikzpicture}[>=Latex,thick,node distance=0.55cm]
+      \tikzstyle{flowbox}=[draw=accent,fill=accentlight,rounded corners=6pt,
+        minimum width=4.4cm,minimum height=0.95cm,align=center]
+      \node[flowbox] (noise) {Noisy latent \(z_t\)};
+      \node[flowbox,below=of noise] (encoder) {DiT / SiT hidden state \(h_t\)};
+      \node[flowbox,below=of encoder] (decode) {Velocity or score prediction};
+      \draw[->,color=signal] (noise) -- (encoder);
+      \draw[->,color=signal] (encoder) -- (decode);
+      \node[draw=signal,fill=signalsoft,rounded corners=8pt,
+            text width=4.2cm,align=left,below=0.8cm of decode] (issue) {
+        \textbf{Issue}\\
+        Semantics are learned only as a side effect of reconstruction
+      };
+      \draw[->,color=signal] (decode) -- (issue);
+    \end{tikzpicture}
+    \vspace{0.15cm}
+    \begin{beamercolorbox}[wd=\linewidth,rounded=true,sep=0.18cm]{block body}
+      Better semantics should reduce the optimization burden.
+    \end{beamercolorbox}
+  \end{columns}
+  \note{
+    Slide này giải thích vấn đề cốt lõi. Khi huấn luyện diffusion
+    transformer, mô hình cần đồng thời học hai thứ: (1) biểu diễn
+    ngữ nghĩa — hiểu ``cái gì đang có trong ảnh'', và (2) chi tiết
+    tần số cao — texture, cạnh, màu sắc chính xác.
+
+    Tín hiệu giám sát duy nhất là loss khử nhiễu — tức là bắt mô hình
+    dự đoán lại noise hoặc velocity. Đây là tín hiệu yếu cho việc học
+    biểu diễn ngữ nghĩa vì nó chủ yếu tập trung vào reconstruction.
+
+    Sơ đồ bên phải cho thấy luồng: latent nhiễu đi qua transformer
+    tạo ra hidden state, rồi predict velocity. Vấn đề là semantics
+    chỉ được học như ``hiệu ứng phụ'' của quá trình reconstruction.
+
+    Giả thuyết của paper: phần khó nhất không phải là giải bài toán
+    denoising, mà là học được biểu diễn nội tại đủ tốt để hỗ trợ
+    quá trình sinh ảnh.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 4 – EVIDENCE: DIFFUSION FEATURES
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{Evidence}
+  \frametitle{Diffusion features are meaningful but still misaligned}
+  \FigTwo[width=\linewidth]
+  \vspace{0.08cm}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.32\textwidth}
+    {\small \textbf{Observation 1}\\
+    SiT hidden states are not useless: linear probing peaks at later
+    layers and shows non-trivial semantics.}
+    \column{0.32\textwidth}
+    {\small \textbf{Observation 2}\\
+    Alignment to DINOv2 exists but is much weaker than alignment
+    between strong SSL models.}
+    \column{0.32\textwidth}
+    {\small \textbf{Observation 3}\\
+    Bigger models and longer training improve alignment only slowly —
+    brute-force scaling is expensive.}
+  \end{columns}
+  \note{
+    Đây là Figure 2 trong paper — bằng chứng thực nghiệm trước khi
+    giới thiệu REPA. Ba quan sát chính:
+
+    Thứ nhất, hidden state của SiT không phải vô nghĩa — khi làm
+    linear probing trên ImageNet, accuracy đạt đỉnh ở các layer sâu
+    hơn, cho thấy có semantic information.
+
+    Thứ hai, tuy nhiên, mức độ alignment với DINOv2 rất yếu so với
+    alignment giữa các mô hình SSL mạnh với nhau. Tức là DINOv2 và
+    CLIP align tốt với nhau, nhưng SiT thì không align tốt với
+    bất kỳ cái nào.
+
+    Thứ ba, khi tăng kích thước mô hình hoặc train lâu hơn, alignment
+    cải thiện rất chậm. Điều này cho thấy brute-force scaling không
+    phải cách hiệu quả — ta cần một phương pháp trực tiếp hơn.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 5 – PRELIMINARIES: STOCHASTIC INTERPOLANTS
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{Background}
+  \frametitle{Preliminaries: stochastic interpolants}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.56\textwidth}
+    \textbf{Forward interpolation}
+    \begin{align*}
+      x_t &= \alpha_t\, x^\ast + \sigma_t\, \epsilon,\qquad
+      \epsilon \sim \mathcal{N}(0, I) \\[4pt]
+      \alpha_0 &= \sigma_1 = 1,\qquad \alpha_1 = \sigma_0 = 0
+    \end{align*}
+    \vspace{-0.2cm}
+    \begin{itemize}
+      \item \(x^\ast\): clean data sample
+      \item \(t \in [0,1]\) interpolates from data (\(t{=}0\)) to noise (\(t{=}1\))
+      \item SiT uses the linear schedule: \(\alpha_t = 1-t,\;\sigma_t = t\)
+    \end{itemize}
+    \vspace{0.1cm}
+    \textbf{Velocity field}
+    \begin{align*}
+      \dot{x}_t = v(x_t, t)
+    \end{align*}
+    The probability flow ODE and its reverse SDE give equivalent generation paths.
+    REPA is agnostic to the exact formulation — it only needs access to hidden states.
+  \column{0.40\textwidth}
+    \begin{tikzpicture}[>=Latex,thick]
+      \draw[line width=1pt,color=accent] (0,0) -- (4.8,0);
+      \foreach \x/\label in {0/{\(t{=}0\)},2.4/{},4.8/{\(t{=}1\)}} {
+        \fill[color=signal] (\x,0) circle (1.9pt);
+        \node[anchor=north] at (\x,-0.1) {\label};
+      }
+      \node[draw=accent,fill=accentlight,rounded corners=7pt,
+            minimum width=1.65cm,minimum height=1.0cm] at (0,1.1) {clean data};
+      \node[draw=accent,fill=softgray,rounded corners=7pt,
+            minimum width=1.75cm,minimum height=1.0cm] at (2.4,1.1) {mixed signal};
+      \node[draw=signal,fill=signalsoft,rounded corners=7pt,
+            minimum width=1.65cm,minimum height=1.0cm] at (4.8,1.1) {Gaussian noise};
+      \draw[->,color=accent] (0.85,1.1) -- (1.55,1.1);
+      \draw[->,color=accent] (3.25,1.1) -- (3.95,1.1);
+      \node[anchor=west,text width=4.85cm,align=left] at (-0.05,-1.0) {
+        \textbf{Key point for REPA}\\
+        REPA supervises a hidden state from \emph{noisy} input,
+        while the target representation comes from the \emph{clean} image.
+      };
+    \end{tikzpicture}
+  \end{columns}
+  \note{
+    Trước khi đi vào REPA, cần nắm nền tảng toán học. Paper dùng
+    framework stochastic interpolants — đây là cách nhìn liên tục
+    về quá trình forward corruption.
+
+    Ta nội suy giữa ảnh sạch $x^*$ và nhiễu Gaussian $\epsilon$ bằng
+    hệ số $\alpha_t$ và $\sigma_t$. SiT dùng lịch trình tuyến tính
+    đơn giản: $\alpha_t = 1 - t$, $\sigma_t = t$.
+
+    Khi $t = 0$ ta có ảnh sạch, $t = 1$ là nhiễu thuần. Mô hình cần
+    học velocity field $v(x_t, t)$ — tức là hướng và tốc độ di chuyển
+    trên đường từ nhiễu về dữ liệu.
+
+    Điểm quan trọng cho REPA: mô hình nhận input nhiễu nhưng target
+    alignment lại đến từ ảnh sạch — đây là key design choice.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 6 – TRAINING OBJECTIVE
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{Background}
+  \frametitle{Training objective recap}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.51\textwidth}
+    \textbf{Velocity objective}
+    \begin{align*}
+      v(x, t) &= \dot{\alpha}_t\,\mathbb{E}[x^\ast \mid x_t{=}x]
+                 + \dot{\sigma}_t\,\mathbb{E}[\epsilon \mid x_t{=}x] \\[4pt]
+      \mathcal{L}_{\text{vel}}(\theta)
+      &= \mathbb{E}_{x^\ast,\epsilon,t}
+      \bigl\|v_\theta(x_t, t) - \dot{\alpha}_t x^\ast
+            - \dot{\sigma}_t \epsilon\bigr\|_2^2
+    \end{align*}
+    \vspace{0.08cm}
+    \textbf{Reverse SDE}
+    \begin{align*}
+      dx_t = v(x_t, t)\,dt
+             - \tfrac{1}{2}\,w_t\,s(x_t, t)\,dt
+             + w_t\,d\bar{w}_t
+    \end{align*}
+  \column{0.47\textwidth}
+    \textbf{Score from velocity}
+    \begin{align*}
+      s(x,t) = \sigma_t^{-1} \cdot
+      \frac{\alpha_t v(x,t) - \dot{\alpha}_t x}
+           {\dot{\alpha}_t \sigma_t - \alpha_t \dot{\sigma}_t}
+    \end{align*}
+    \vspace{0.16cm}
+    \callout{\textbf{Interpretation.} The denoising loss teaches the network
+    to invert the corruption process. REPA adds a second pressure:
+    hidden states should also look like clean, semantically rich visual features.}
+    \vspace{0.16cm}
+    {\small Applicable to both SiT-style velocity prediction and
+    DiT-style DDPM objectives.}
+  \end{columns}
+  \note{
+    Slide này nhắc lại training objective. Mô hình học velocity field
+    bằng cách minimize khoảng cách giữa velocity dự đoán và velocity
+    thực tế (tổ hợp tuyến tính của $x^*$ và $\epsilon$).
+
+    Khi sampling, ta dùng reverse SDE hoặc ODE để đi ngược từ nhiễu
+    về dữ liệu. Score function $s(x,t)$ có thể được tính từ velocity
+    qua công thức chuyển đổi.
+
+    Điểm mấu chốt: loss khử nhiễu chỉ dạy mô hình ``đảo ngược quá
+    trình corruption''. REPA sẽ thêm một áp lực thứ hai: hidden state
+    phải trông giống feature ngữ nghĩa sạch.
+
+    Paper áp dụng cho cả SiT (velocity) lẫn DiT (DDPM noise prediction).
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 7 – REPA INTUITION
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{REPA}
+  \frametitle{Intuition: noisy hidden states should predict clean semantics}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.43\textwidth}
+    \begin{itemize}
+      \item A \textbf{pretrained encoder} sees the clean image \(x^\ast\)
+            and produces target features \(y^\ast\).
+      \item The \textbf{diffusion transformer} sees noisy latent \(z_t\)
+            and produces hidden state \(h_t\).
+      \item A small \textbf{projector MLP} maps \(h_t\) into the target
+            feature space, and REPA \textbf{aligns them patch by patch}.
+    \end{itemize}
+    \vspace{0.14cm}
+    \callout{\textbf{Elegance.} No redesign of sampling or backbone.
+    Just a simple regularizer that distills external semantics into
+    the denoising model during training.}
+  \column{0.55\textwidth}
+    \FigThree[width=\linewidth]
+  \end{columns}
+  \note{
+    Đây là ý tưởng trực quan của REPA — slide quan trọng nhất.
+
+    Ta có hai nhánh song song:
+    — Nhánh trên: DINOv2 (frozen, pretrained) nhận ảnh sạch $x^*$
+      và cho ra feature map $y^*$ với ngữ nghĩa mạnh.
+    — Nhánh dưới: diffusion transformer nhận latent nhiễu $z_t$,
+      đi qua các block, tạo ra hidden state $h_t$ ở một block sớm.
+
+    Một MLP projector nhỏ (3 layer) ánh xạ $h_t$ vào không gian
+    feature của DINOv2, rồi ta tính loss alignment patch-by-patch.
+
+    Điểm đẹp: ta không thay đổi kiến trúc backbone, không thay đổi
+    sampler, chỉ thêm một auxiliary loss. Projector MLP chỉ dùng khi
+    train, bỏ khi inference.
+
+    Hình bên phải là Figure 3 trong paper, minh họa pipeline này.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 8 – FORMAL OBJECTIVE
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{REPA}
+  \frametitle{Formal objective}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.58\textwidth}
+    \textbf{Target representation from pretrained encoder:}
+    \begin{align*}
+      y^\ast = f(x^\ast) \in \mathbb{R}^{N \times D}
+    \end{align*}
+    \textbf{Hidden state from diffusion model:}
+    \begin{align*}
+      h_t = f_\theta(z_t) \in \mathbb{R}^{N \times D'}
+    \end{align*}
+    \textbf{REPA loss (patch-wise alignment):}
+    \begin{align*}
+      \mathcal{L}_{\text{REPA}}(\theta, \phi)
+      = -\,\mathbb{E}_{x^\ast,\epsilon,t}\!\left[
+        \frac{1}{N}\sum_{n=1}^{N}
+        \mathrm{sim}\!\bigl(y_n^\ast,\;h_\phi(h_t)_n\bigr)
+      \right]
+    \end{align*}
+    \textbf{Combined training objective:}
+    \begin{align*}
+      \boxed{\;\mathcal{L} = \mathcal{L}_{\text{velocity}}
+        + \lambda\,\mathcal{L}_{\text{REPA}}\;}
+    \end{align*}
+    \vspace{0.08cm}
+    \begin{itemize}
+      \item \(f\): frozen pretrained encoder (typically DINOv2)
+      \item \(h_\phi\): small trainable projection head (3-layer MLP)
+      \item \(\mathrm{sim}\): NT-Xent or cosine similarity
+      \item \(\lambda\): tradeoff weight (default \(\approx 0.5\))
+    \end{itemize}
+  \column{0.38\textwidth}
+    \begin{beamercolorbox}[wd=\linewidth,rounded=true,sep=0.20cm]{block body}
+      \textbf{Key design choice}\\[4pt]
+      The target comes from the \emph{clean image}, not from a noisy
+      augmentation. The model learns to recover semantic structure
+      that is invariant to the diffusion corruption.
+    \end{beamercolorbox}
+    \vspace{0.18cm}
+    \begin{beamercolorbox}[wd=\linewidth,rounded=true,sep=0.20cm]{block body}
+      \textbf{Operationally}\\[4pt]
+      REPA is just an auxiliary loss. It slots into existing DiT/SiT
+      training with minimal code change.
+    \end{beamercolorbox}
+    \vspace{0.18cm}
+    \begin{beamercolorbox}[wd=\linewidth,rounded=true,sep=0.20cm]{block body}
+      \textbf{Notation}\\[4pt]
+      \(N\) = number of spatial patches\\
+      \(D, D'\) = feature dimensions\\
+      \(n\) indexes individual patches
+    \end{beamercolorbox}
+  \end{columns}
+  \note{
+    Slide công thức chính thức — hãy giải thích từng phần.
+
+    Đầu tiên, encoder pretrained $f$ (DINOv2) nhận ảnh sạch $x^*$
+    và cho ra ma trận feature $y^* \in \mathbb{R}^{N \times D}$,
+    trong đó $N$ là số patch (ví dụ 256 patch cho ảnh 256x256 qua
+    VAE thành 32x32, rồi patchify), $D$ là chiều feature.
+
+    Hidden state $h_t$ từ diffusion model có chiều $D'$ khác, nên
+    cần projection head $h_\phi$ (MLP 3 layer) để ánh xạ về cùng
+    không gian.
+
+    REPA loss tính similarity giữa từng cặp patch tương ứng, rồi
+    lấy trung bình trên $N$ patch. Similarity có thể là cosine
+    hoặc NT-Xent (contrastive).
+
+    Loss tổng hợp: cộng velocity loss với $\lambda$ nhân REPA loss.
+    $\lambda$ mặc định khoảng 0.5 — paper cho thấy kết quả khá
+    robust với giá trị này.
+
+    Lưu ý quan trọng: target đến từ ảnh SẠCH, không phải ảnh nhiễu.
+    Đây là design choice then chốt — model phải học recover semantics
+    bất biến với corruption.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 9 – ARCHITECTURE: WHERE REPA ATTACHES
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{REPA}
+  \frametitle{Architecture: where REPA is attached}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.46\textwidth}
+    \FigNine[width=\linewidth]
+  \column{0.50\textwidth}
+    \begin{itemize}
+      \item Backbone is identical to DiT/SiT: patchify, run transformer blocks,
+            predict velocity.
+      \item REPA taps an \textbf{intermediate hidden state},
+            typically from an \textbf{early block} (depth 6--8).
+      \item A lightweight \textbf{3-layer MLP projector} (with SiLU) bridges
+            the hidden state to the target feature space.
+      \item The projector is \textbf{training-time only} —
+            discarded at inference.
+      \item AdaLN-zero conditioning and the denoising head
+            remain \textbf{untouched}.
+    \end{itemize}
+    \vspace{0.15cm}
+    \callout{\textbf{Takeaway.} REPA is not a new architecture. It is a
+    training-time regularization layer on top of the existing model.}
+  \end{columns}
+  \note{
+    Slide kiến trúc. Hình bên trái trích từ paper (appendix Figure 9)
+    cho thấy cách REPA được gắn vào mô hình.
+
+    Backbone hoàn toàn giữ nguyên: ảnh latent được patchify thành
+    token sequence, đi qua các transformer block với AdaLN-zero
+    conditioning (inject timestep $t$ và class label).
+
+    REPA ``tap'' vào hidden state ở một block trung gian sớm —
+    thường là block thứ 6 hoặc 8 (trong tổng số 28 block của XL).
+
+    Projection head là MLP 3 layer với activation SiLU, rất nhẹ.
+    Nó chỉ dùng khi training để ánh xạ hidden state vào không gian
+    DINOv2. Khi inference, ta bỏ hoàn toàn projector — model chạy
+    giống hệt SiT/DiT gốc.
+
+    Đây là điểm mạnh: REPA không thay đổi kiến trúc hay sampler,
+    chỉ thêm auxiliary loss, nên rất dễ tích hợp.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 10 – WHY EARLY LAYERS
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{REPA}
+  \frametitle{Why early-layer alignment is enough}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.49\textwidth}
+    \begin{tabular}{L{2.2cm}C{1.1cm}C{1.2cm}L{2.4cm}}
+      \toprule
+      Setting & Depth & FID \metricdown & Interpretation \\
+      \midrule
+      Vanilla SiT-L/2 & -- & 18.8 & no alignment \\
+      REPA + DINOv2-L & 6 & 10.3 & strong early gains \\
+      REPA + DINOv2-L & 8 & \textbf{10.0} & best tradeoff \\
+      REPA + DINOv2-L & 12 & 11.2 & alignment hurts \\
+      REPA + DINOv2-L & 16 & 12.1 & too constrained \\
+      \bottomrule
+    \end{tabular}
+    \vspace{0.18cm}
+    \papersource{Table 3 in the paper}
+  \column{0.47\textwidth}
+    \begin{enumerate}
+      \item Early blocks learn a \textbf{semantic scaffold}.
+      \item Middle and late blocks no longer need to rediscover
+            object-level structure.
+      \item Remaining capacity focuses on \textbf{high-frequency,
+            generative detail}.
+    \end{enumerate}
+    \vspace{0.18cm}
+    \callout{\textbf{Interpretation.} REPA should shape the
+    representation space \emph{early}, then step out of the way
+    so the model can finish the denoising task with later blocks.}
+  \end{columns}
+  \note{
+    Tại sao align ở layer sớm lại hiệu quả? Bảng trái cho thấy
+    kết quả thí nghiệm thay đổi vị trí alignment depth.
+
+    Depth 6: FID giảm mạnh từ 18.8 xuống 10.3 — cải thiện lớn.
+    Depth 8: tốt nhất, đạt FID 10.0.
+    Depth 12 và 16: bắt đầu xấu đi — alignment ở quá sâu
+    ``chèn ép'' khả năng của các layer sau.
+
+    Giải thích: các block sớm nên lo việc xây dựng ``khung ngữ nghĩa''
+    — hiểu scene có gì, vật thể ở đâu. Các block giữa và sau tập
+    trung vào chi tiết tần số cao — texture, edge, color chính xác.
+
+    Nếu ta ép alignment ở quá nhiều layer hoặc layer sâu, model
+    không còn đủ ``dư địa'' cho phần generative detail.
+
+    Đây là discovery thực nghiệm — paper thừa nhận chưa có lý thuyết
+    chặt chẽ giải thích, nhưng kết quả rất nhất quán.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 11 – COMPONENT ABLATION (Table 2)
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{Experiments}
+  \frametitle{Ablation: which components matter most}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.54\textwidth}
+    \begin{tabular}{L{3.2cm}C{1.1cm}C{1.2cm}C{1.1cm}}
+      \toprule
+      Setting (SiT-L/2, 400K) & FID \metricdown & IS \metricup & Acc \metricup \\
+      \midrule
+      Vanilla & 18.8 & 72.0 & -- \\
+      + MAE-L & 12.5 & 90.7 & 57.3 \\
+      + CLIP-L & 11.0 & 100.4 & 67.2 \\
+      + SigLIP-L & 10.2 & 107.0 & 68.8 \\
+      + DINOv2-L & 10.0 & 106.6 & 68.1 \\
+      + DINOv2-B & 9.7 & 107.5 & 65.7 \\
+      + cosine sim & 9.9 & 111.9 & 68.2 \\
+      \bottomrule
+    \end{tabular}
+    \vspace{0.14cm}
+    \papersource{Table 2 in the paper}
+  \column{0.42\textwidth}
+    \begin{itemize}
+      \item Stronger target encoders improve both semantics and generation.
+      \item Very large encoders are \emph{not} mandatory; DINOv2-B already works well.
+      \item Simple cosine similarity is competitive with contrastive (NT-Xent) objectives.
+      \item \textbf{Every} design choice beats the vanilla baseline by a wide margin.
+    \end{itemize}
+    \vspace{0.12cm}
+    \callout{REPA is \textbf{robust}: the improvement is not tied to one specific
+    target encoder or similarity function.}
+  \end{columns}
+  \note{
+    Slide ablation — rất quan trọng để hiểu yếu tố nào đóng góp.
+
+    Vanilla SiT-L/2 sau 400K iteration: FID 18.8. Khi thêm REPA:
+    — MAE-L: giảm xuống 12.5. MAE học reconstruction nên features
+      không mạnh về discriminative.
+    — CLIP-L: 11.0 — tốt hơn nhờ features discriminative mạnh
+      (contrastive image-text).
+    — SigLIP-L: 10.2 — tương tự CLIP nhưng dùng sigmoid loss.
+    — DINOv2-L: 10.0 — self-supervised, features rất tốt cho
+      dense prediction.
+    — DINOv2-B (nhỏ hơn): 9.7 — bất ngờ là nhỏ hơn lại tốt hơn
+      một chút, có thể do matching dimension dễ hơn.
+    — Dùng cosine similarity thay NT-Xent: 9.9 — gần như tương đương.
+
+    Kết luận: REPA robust — không phụ thuộc vào một encoder hay
+    similarity function cụ thể. Bất kỳ encoder pretrained tốt nào
+    cũng cải thiện đáng kể.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 12 – SCALABILITY
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{Experiments}
+  \frametitle{Scalability: stronger targets and larger DiTs help more}
+  \FigFive[width=\linewidth]
+  \vspace{0.05cm}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.32\textwidth}
+    {\small \textbf{Target quality}\\
+    Better pretrained encoders push both linear-probe accuracy
+    and FID in the right direction.}
+    \column{0.32\textwidth}
+    {\small \textbf{Model size}\\
+    Larger SiT models benefit more from REPA; the relative
+    speedup grows with scale.}
+    \column{0.32\textwidth}
+    {\small \textbf{Joint frontier}\\
+    REPA improves the discrimination--generation frontier rather
+    than trading one metric for another.}
+  \end{columns}
+  \note{
+    Figure 5 cho thấy tính scalability. Ba điểm chính:
+
+    Thứ nhất — target quality: encoder tốt hơn (DINOv2 > CLIP > MAE)
+    thì cả linear probe accuracy lẫn FID đều cải thiện. Tức là chất
+    lượng representation target trực tiếp ảnh hưởng kết quả.
+
+    Thứ hai — model size: SiT-B, SiT-L, SiT-XL — model lớn hơn
+    hưởng lợi nhiều hơn từ REPA. Relative speedup tăng theo scale.
+
+    Thứ ba — REPA cải thiện cả hai chiều: discrimination (accuracy)
+    lẫn generation (FID) cùng lúc, thay vì đánh đổi một cái cho
+    cái kia. Đây là frontier improvement thực sự.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 13 – CONVERGENCE
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{Experiments}
+  \frametitle{Convergence and efficiency}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.48\textwidth}
+    \FigEleven[width=\linewidth]
+  \column{0.48\textwidth}
+    \begin{tabular}{L{2.3cm}C{1.2cm}C{1.1cm}}
+      \toprule
+      Model & Iterations & FID \metricdown \\
+      \midrule
+      SiT-XL/2 & 7M & 8.3 \\
+      \midrule
+      REPA & 400K & 7.9 \\
+      REPA & 1M & 6.4 \\
+      REPA & 4M & 5.9 \\
+      \midrule
+      DiT-XL/2 & 7M & 9.6 \\
+      REPA & 850K & 9.6 \\
+      \bottomrule
+    \end{tabular}
+    \vspace{0.14cm}
+    \callout{\textbf{Key message.} REPA is not only a better endpoint:
+    it changes the optimization trajectory so the model enters a good
+    semantic regime much earlier.}
+    \vspace{0.12cm}
+    {\scriptsize The paper highlights a \(\mathbf{>17.5\times}\) speedup for
+    matching strong SiT performance without CFG.}
+  \end{columns}
+  \note{
+    Slide tốc độ hội tụ — một trong những kết quả ấn tượng nhất.
+
+    Bảng bên phải so sánh trực tiếp:
+    — SiT-XL/2 vanilla: 7 triệu iteration mới đạt FID 8.3.
+    — REPA: chỉ 400K iteration đã đạt FID 7.9 — tốt hơn!
+      Tức là nhanh hơn hơn 17.5 lần.
+    — Train thêm đến 4M iteration: FID giảm xuống 5.9.
+
+    Với DiT-XL/2: vanilla cần 7M iteration cho FID 9.6,
+    REPA chỉ cần 850K — nhanh hơn 8 lần.
+
+    Hình bên trái (Figure 11) show training curve — đường REPA
+    giảm nhanh hơn rất nhiều ngay từ đầu training.
+
+    Insight quan trọng: REPA không chỉ cải thiện kết quả cuối cùng,
+    mà thay đổi toàn bộ trajectory tối ưu hóa. Model ``vào vùng
+    ngữ nghĩa tốt'' sớm hơn nhiều.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 14 – SYSTEM-LEVEL COMPARISON
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{Experiments}
+  \frametitle{System-level comparison on ImageNet 256\(\times\)256}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.58\textwidth}
+    \begin{tabular}{L{3.4cm}C{1.1cm}C{1.2cm}C{1.0cm}}
+      \toprule
+      Method & Epochs & FID \metricdown & Rec. \metricup \\
+      \midrule
+      U-ViT-H/2 & 240 & 2.29 & 0.57 \\
+      DiffiT* & -- & 1.73 & 0.62 \\
+      MDTv2-XL/2* & 1080 & 1.58 & 0.65 \\
+      \midrule
+      DiT-XL/2 & 1400 & 2.27 & 0.57 \\
+      SiT-XL/2 & 1400 & 2.06 & 0.59 \\
+      \midrule
+      REPA (800 ep) & 800 & 1.80 & 0.61 \\
+      REPA + guid.\ interval* & 800 & \textbf{1.42} & \textbf{0.64} \\
+      \bottomrule
+    \end{tabular}
+    \vspace{0.08cm}
+    {\scriptsize * Uses guidance interval or advanced CFG scheduling.}
+  \column{0.38\textwidth}
+    \begin{itemize}
+      \item REPA beats vanilla SiT with fewer epochs.
+      \item With CFG and guidance interval: \textbf{FID = 1.42} — best
+            in class at time of publication.
+      \item Competitive against strong transformer and hybrid baselines.
+    \end{itemize}
+    \vspace{0.16cm}
+    \callout{\textbf{Bottom line.} REPA + guidance interval is
+    the best performing DiT-family model on ImageNet 256\(\times\)256
+    at publication time.}
+  \end{columns}
+  \note{
+    So sánh system-level trên ImageNet 256x256 — benchmark chuẩn.
+
+    Các baseline mạnh: DiT-XL/2 cần 1400 epoch để đạt FID 2.27,
+    SiT-XL/2 cần 1400 epoch cho FID 2.06.
+
+    REPA chỉ cần 800 epoch (gần một nửa) đã đạt FID 1.80 — tốt
+    hơn đáng kể. Khi kết hợp với guidance interval (một kỹ thuật
+    CFG scheduling), đạt FID 1.42 — state-of-the-art.
+
+    So với các phương pháp khác: MDTv2-XL/2 đạt 1.58 nhưng cần
+    1080 epoch và dùng kiến trúc khác. DiffiT đạt 1.73. REPA
+    vượt trội tất cả.
+
+    Recall ratio cũng tốt: 0.64 — cho thấy model không chỉ
+    generate ảnh giống training data mà còn đa dạng.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 15 – QUALITATIVE
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{Experiments}
+  \frametitle{Qualitative improvement appears early in training}
+  \FigFour[width=\linewidth]
+  \vspace{0.06cm}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.32\textwidth}
+    {\small \textbf{Controlled comparison}\\
+    Same noise seed, same sampler, same number of function evaluations, no CFG.}
+    \column{0.32\textwidth}
+    {\small \textbf{Visual pattern}\\
+    REPA sharpens object identity and compositional structure earlier.}
+    \column{0.32\textwidth}
+    {\small \textbf{Interpretation}\\
+    Better internal semantics translate into visibly better
+    generations during the early training phase.}
+  \end{columns}
+  \note{
+    Kết quả trực quan từ Figure 4. So sánh controlled: cùng noise
+    seed, cùng sampler, cùng số bước sampling, không dùng CFG.
+
+    Hàng trên: SiT vanilla ở các mốc training khác nhau.
+    Hàng dưới: SiT + REPA ở cùng các mốc đó.
+
+    Rõ ràng REPA cho ảnh sắc nét hơn, nhận diện vật thể tốt hơn,
+    cấu trúc ảnh hợp lý hơn — đặc biệt ở giai đoạn đầu training.
+
+    Ví dụ: ở 200K iteration, vanilla vẫn còn rất mờ và thiếu cấu
+    trúc, trong khi REPA đã cho thấy vật thể rõ ràng.
+
+    Điều này nhất quán với giả thuyết: khi semantics tốt hơn sớm,
+    model có thể tập trung vào chi tiết sớm hơn.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 16 – WHY REPA HELPS
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{Interpretation}
+  \frametitle{Why REPA helps both speed and final FID}
+  \begin{center}
+  \begin{tikzpicture}[>=Latex,thick,node distance=1.15cm]
+    \tikzstyle{ibox}=[draw=accent,fill=accentlight,rounded corners=8pt,
+      minimum width=4.0cm,minimum height=1.1cm,align=center]
+    \tikzstyle{gbox}=[draw=signal,fill=signalsoft,rounded corners=8pt,
+      minimum width=4.2cm,minimum height=1.15cm,align=center]
+    \node[ibox] (a) {1.\ Early hidden states\\absorb pretrained semantics};
+    \node[gbox,right=1.1cm of a] (b) {2.\ Optimization becomes easier\\
+      because semantics are \emph{explicit}};
+    \node[ibox,right=1.1cm of b] (c) {3.\ Later layers focus on\\
+      texture, geometry, detail};
+    \draw[->,color=accent,line width=1.1pt] (a) -- (b);
+    \draw[->,color=accent,line width=1.1pt] (b) -- (c);
+  \end{tikzpicture}
+  \end{center}
+  \vspace{0.22cm}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.48\textwidth}
+    \callout{\textbf{Optimization story.} REPA supplies a clean semantic
+    target that the denoising loss alone would need many more updates
+    to discover.}
+    \column{0.48\textwidth}
+    \callout{\textbf{Quality story.} Once semantics are stabilized,
+    the model allocates more effective capacity to the truly generative
+    part of the task.}
+  \end{columns}
+  \vspace{0.16cm}
+  {\small This interpretation is empirical, not theoretically proved,
+  but consistent with all ablations in the paper.}
+  \note{
+    Slide giải thích ``tại sao REPA hoạt động'' — tổng hợp insight.
+
+    Ba bước logic:
+
+    Bước 1: Nhờ REPA, các block sớm nhanh chóng hấp thụ ngữ nghĩa
+    từ DINOv2. Hidden state ở block 6-8 trở nên ``có ý nghĩa'' sớm
+    trong quá trình training.
+
+    Bước 2: Khi ngữ nghĩa đã explicit (không cần model tự khám phá),
+    quá trình tối ưu hóa trở nên dễ dàng hơn. Gradient signal rõ
+    ràng hơn, loss landscape smooth hơn.
+
+    Bước 3: Các layer sau không cần lo ``understanding what's in the
+    image'' nữa — chúng tập trung toàn bộ capacity vào chi tiết
+    generative: texture, geometry, lighting, fine detail.
+
+    Hai góc nhìn bổ sung: optimization story (nhanh hơn) và quality
+    story (tốt hơn). Cả hai đều được paper chứng minh thực nghiệm.
+
+    Lưu ý: đây là giải thích thực nghiệm, chưa có chứng minh lý
+    thuyết chặt chẽ — paper thừa nhận đây là limitation.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 17 – LIMITATIONS & FUTURE
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{Discussion}
+  \frametitle{Limitations and future directions}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.52\textwidth}
+    \textbf{Current limitations}
+    \begin{itemize}
+      \item \textbf{Alignment depth} chosen empirically; no theoretical
+            guidance on why early layers are best.
+      \item Mostly validated on \textbf{latent image diffusion};
+            video, pixel-space, and audio generation remain open.
+      \item The work is largely \textbf{empirical}; no theoretical bound
+            on how much alignment helps.
+      \item \textbf{Time-varying REPA weights} and richer schedules
+            are left for future work.
+      \item Only tested with \textbf{vision} SSL encoders; cross-modal
+            targets unexplored.
+    \end{itemize}
+  \column{0.44\textwidth}
+    \begin{beamercolorbox}[wd=\linewidth,rounded=true,sep=0.22cm]{block body}
+      \textbf{Promising directions}
+      \begin{itemize}
+        \item Larger-scale text-to-image training
+        \item Principled alignment schedules
+              (vary \(\lambda\) or depth over time)
+        \item Theory linking denoising and
+              representation learning
+        \item Broader encoder choices beyond
+              current SSL vision models
+        \item Video and multi-modal diffusion
+      \end{itemize}
+    \end{beamercolorbox}
+    \vspace{0.18cm}
+    \callout{REPA opens a clear line of research: what is the
+    \emph{optimal} way to inject pretrained knowledge into
+    generative training?}
+  \end{columns}
+  \note{
+    Limitations — cần trung thực về những gì paper chưa giải quyết.
+
+    Thứ nhất, alignment depth (block 6-8) được chọn qua grid search,
+    không có lý thuyết giải thích tại sao. Với architecture khác
+    hoặc dataset khác, con số này có thể thay đổi.
+
+    Thứ hai, hầu hết thí nghiệm trên latent image diffusion (ImageNet).
+    Video diffusion, pixel-space diffusion, audio — chưa được kiểm chứng.
+
+    Thứ ba, hoàn toàn thực nghiệm — không có bound lý thuyết.
+
+    Thứ tư, $\lambda$ cố định suốt training. Có thể schedule $\lambda$
+    theo thời gian sẽ tốt hơn — ví dụ giảm dần khi model đã học đủ
+    semantics — nhưng paper chưa explore.
+
+    Hướng tương lai hứa hẹn: text-to-image scale lớn, lý thuyết
+    liên kết denoising và representation learning, và mở rộng sang
+    các modality khác.
+  }
+\end{frame}
+
+% ------------------------------------------------------------------
+% SLIDE 18 – TAKEAWAYS
+% ------------------------------------------------------------------
+\begin{frame}[t]
+  \framesubtitle{Conclusion}
+  \frametitle{Three key takeaways}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \column{0.58\textwidth}
+    \begin{enumerate}
+      \item Diffusion transformers already learn useful features, but
+            they are \textbf{not aligned enough} with strong semantic
+            representations.
+      \item REPA converts that weakness into a \textbf{simple auxiliary
+            objective}: align noisy hidden states to clean pretrained
+            features.
+      \item The result is one of the clearest cases where \textbf{better
+            representation learning directly improves generative
+            training efficiency}.
+    \end{enumerate}
+    \vspace{0.18cm}
+    \callout{\textbf{Bottom line.} REPA is simple, modular, and
+    high-leverage: it changes neither the sampler nor the backbone,
+    yet materially transforms the training dynamics.}
+  \column{0.38\textwidth}
+    \begin{beamercolorbox}[wd=\linewidth,rounded=true,sep=0.24cm]{block body}
+      \textbf{Numbers to remember}
+      \begin{itemize}
+        \item FID 1.42 on ImageNet 256
+        \item \(>17.5\times\) training speedup
+        \item Just an auxiliary loss, minimal code change
+      \end{itemize}
+    \end{beamercolorbox}
+    \vspace{0.24cm}
+    \begin{beamercolorbox}[wd=\linewidth,rounded=true,sep=0.24cm]{block body}
+      \textbf{Backup slides available}
+      \begin{itemize}
+        \item Derivations
+        \item Metrics (CKNNA, CKA)
+        \item Extra ablations
+        \item 512\(\times\)512 and T2I extensions
+      \end{itemize}
+    \end{beamercolorbox}
+    \vspace{0.24cm}
+    {\small S.\ Yu et al., ``Representation Alignment for Generation,''
+    ICLR 2025.}
+  \end{columns}
+  \note{
+    Slide tổng kết — ba điểm cần nhớ:
+
+    Một: Diffusion transformer có học features, nhưng chúng chưa đủ
+    aligned với biểu diễn ngữ nghĩa mạnh. Gap này là bottleneck
+    chính cho tốc độ training và chất lượng.
+
+    Hai: REPA biến weakness thành strength bằng một auxiliary loss
+    đơn giản — align hidden state với DINOv2 features. Không cần
+    thay đổi architecture hay sampler.
+
+    Ba: Đây là một trong những ví dụ rõ ràng nhất cho thấy
+    ``representation learning tốt hơn = generative training hiệu
+    quả hơn''. FID 1.42 và speedup 17.5 lần là con số ấn tượng.
+
+    Nếu có câu hỏi, mình có backup slides trong appendix bao gồm
+    derivations, metrics, ablations chi tiết, và extensions sang
+    512x512 và text-to-image.
+
+    Cảm ơn mọi người đã lắng nghe!
+  }
+\end{frame}

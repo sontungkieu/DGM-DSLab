@@ -1,0 +1,130 @@
+\documentclass[10pt,aspectratio=169]{beamer}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{mathptmx}
+\renewcommand{\familydefault}{\rmdefault}
+\usefonttheme{professionalfonts}
+
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{array,booktabs,tabularx}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{appendixnumberbeamer}
+\usepackage{pgfpages}
+
+\usetikzlibrary{arrows.meta,calc,fit,positioning,shapes.geometric}
+\pgfplotsset{compat=1.18}
+
+% ── Uncomment below to show notes on second screen ──
+% \setbeameroption{show notes on second screen=right}
+
+% ── Color palette ──
+\definecolor{paperbg}{HTML}{F7F3EC}
+\definecolor{ink}{HTML}{1F2529}
+\definecolor{muted}{HTML}{6B7378}
+\definecolor{accent}{HTML}{1F4E5F}
+\definecolor{accentlight}{HTML}{DCE8EC}
+\definecolor{signal}{HTML}{C7683B}
+\definecolor{signalsoft}{HTML}{F4E5DB}
+\definecolor{linegray}{HTML}{D6D1CA}
+\definecolor{softgray}{HTML}{EFEAE2}
+
+% ── Beamer theme ──
+\setbeamercolor{background canvas}{bg=paperbg}
+\setbeamercolor{normal text}{fg=ink,bg=paperbg}
+\setbeamercolor{title}{fg=accent}
+\setbeamercolor{frametitle}{fg=ink,bg=paperbg}
+\setbeamercolor{framesubtitle}{fg=signal,bg=paperbg}
+\setbeamercolor{structure}{fg=accent}
+\setbeamercolor{block title}{fg=paperbg,bg=accent}
+\setbeamercolor{block body}{fg=ink,bg=accentlight}
+\setbeamercolor{footline}{fg=muted,bg=paperbg}
+
+\setbeamerfont{title}{size=\Large,series=\bfseries}
+\setbeamerfont{subtitle}{size=\normalsize}
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+\setbeamerfont{framesubtitle}{size=\scriptsize,series=\bfseries}
+\setbeamerfont{footline}{size=\scriptsize}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamersize{text margin left=0.55cm,text margin right=0.55cm}
+\setlength{\parskip}{0.2em}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.12}
+
+\setbeamertemplate{itemize item}{\color{signal}\small$\blacktriangleright$}
+\setbeamertemplate{itemize subitem}{\color{accent}\scriptsize$\bullet$}
+
+\setbeamertemplate{frametitle}{
+  \vspace{0.15cm}
+  \begin{beamercolorbox}[wd=\paperwidth,leftskip=0.55cm,rightskip=0.55cm,sep=0.12cm]{frametitle}
+    \ifx\insertframesubtitle\@empty
+    \else
+      {\usebeamerfont{framesubtitle}\MakeUppercase{\insertframesubtitle}\par}
+      \vspace{0.06cm}
+    \fi
+    {\usebeamerfont{frametitle}\insertframetitle\par}
+    \vspace{0.04cm}
+    {\color{linegray}\rule{\linewidth}{0.4pt}}
+  \end{beamercolorbox}
+}
+
+\setbeamertemplate{footline}{}
+
+% ── Column types ──
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
+
+% ── Helper commands ──
+\newcommand{\papersource}[1]{{\tiny\color{muted}Source: #1}}
+\newcommand{\callout}[1]{%
+  \begin{beamercolorbox}[wd=\linewidth,rounded=true,sep=0.18cm]{block body}
+  \raggedright #1
+  \end{beamercolorbox}
+}
+\newcommand{\metricdown}{\ensuremath{\downarrow}}
+\newcommand{\metricup}{\ensuremath{\uparrow}}
+
+% ── Crop figures from the paper PDF ──
+\newcommand{\papercrop}[3][]{%
+  \includegraphics[#1,page=#2,trim=#3,clip]{../REPA/Representation_Alignment_.pdf}%
+}
+
+% ── Named figure crops (reusing verified coordinates) ──
+\newcommand{\FigOne}[1][]{\papercrop[#1]{1}{54bp 250bp 63bp 445bp}}
+\newcommand{\FigTwo}[1][]{\papercrop[#1]{2}{50bp 598bp 63bp 50bp}}
+\newcommand{\FigThree}[1][]{\papercrop[#1]{3}{50bp 598bp 63bp 47bp}}
+\newcommand{\FigFour}[1][]{\papercrop[#1]{5}{43bp 625bp 59bp 48bp}}
+\newcommand{\FigFive}[1][]{\papercrop[#1]{8}{38bp 625bp 59bp 55bp}}
+\newcommand{\FigSix}[1][]{\papercrop[#1]{8}{66bp 165bp 60bp 345bp}}
+\newcommand{\FigNine}[1][]{\papercrop[#1]{20}{190bp 515bp 200bp 110bp}}
+\newcommand{\FigTen}[1][]{\papercrop[#1]{21}{95bp 260bp 144bp 270bp}}
+\newcommand{\FigEleven}[1][]{\papercrop[#1]{26}{210bp 540bp 205bp 120bp}}
+\newcommand{\AppQuant}[1][]{\papercrop[#1]{25}{32bp 99bp 36bp 41bp}}
+\newcommand{\AppFiveTwelve}[1][]{\papercrop[#1]{30}{108bp 185bp 102bp 245bp}}
+\newcommand{\AppTTwoI}[1][]{\papercrop[#1]{31}{72bp 70bp 88bp 275bp}}
+\newcommand{\AppFeature}[1][]{\papercrop[#1]{32}{75bp 150bp 75bp 365bp}}
+\newcommand{\AppQualTop}[1][]{\papercrop[#1]{27}{40bp 525bp 50bp 96bp}}
+\newcommand{\AppQualBottom}[1][]{\papercrop[#1]{27}{40bp 270bp 50bp 370bp}}
+
+% ── Title metadata ──
+\title{Representation Alignment for Generation}
+\subtitle{Training Diffusion Transformers Is Easier Than You Think}
+\author{Sihyun Yu, Sangkyung Kwak, Huiwon Jang, Franck Dernoncourt,\\
+Jaehui Hwang, Bohyung Han, Jongmin Kim}
+\date{ICLR 2025}
+
+\begin{document}
+
+\input{sections/slides_main}
+
+\appendix
+\input{sections/slides_appendix}
+
+\end{document}
