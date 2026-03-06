@@ -1,130 +1,1013 @@
-\documentclass[10pt,aspectratio=169]{beamer}
+\documentclass[aspectratio=169, 10pt]{beamer}
 
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage[english]{babel}
-\usepackage{mathptmx}
-\renewcommand{\familydefault}{\rmdefault}
-\usefonttheme{professionalfonts}
-
-\usepackage{microtype}
-\usepackage{amsmath,amssymb,bm}
-\usepackage{array,booktabs,tabularx}
-\usepackage{graphicx}
-\usepackage{xcolor}
-\usepackage{tikz}
-\usepackage{pgfplots}
-\usepackage{appendixnumberbeamer}
-\usepackage{pgfpages}
-
-\usetikzlibrary{arrows.meta,calc,fit,positioning,shapes.geometric}
-\pgfplotsset{compat=1.18}
-
-% ── Uncomment below to show notes on second screen ──
-% \setbeameroption{show notes on second screen=right}
-
-% ── Color palette ──
-\definecolor{paperbg}{HTML}{F7F3EC}
-\definecolor{ink}{HTML}{1F2529}
-\definecolor{muted}{HTML}{6B7378}
-\definecolor{accent}{HTML}{1F4E5F}
-\definecolor{accentlight}{HTML}{DCE8EC}
-\definecolor{signal}{HTML}{C7683B}
-\definecolor{signalsoft}{HTML}{F4E5DB}
-\definecolor{linegray}{HTML}{D6D1CA}
-\definecolor{softgray}{HTML}{EFEAE2}
-
-% ── Beamer theme ──
-\setbeamercolor{background canvas}{bg=paperbg}
-\setbeamercolor{normal text}{fg=ink,bg=paperbg}
-\setbeamercolor{title}{fg=accent}
-\setbeamercolor{frametitle}{fg=ink,bg=paperbg}
-\setbeamercolor{framesubtitle}{fg=signal,bg=paperbg}
-\setbeamercolor{structure}{fg=accent}
-\setbeamercolor{block title}{fg=paperbg,bg=accent}
-\setbeamercolor{block body}{fg=ink,bg=accentlight}
-\setbeamercolor{footline}{fg=muted,bg=paperbg}
-
-\setbeamerfont{title}{size=\Large,series=\bfseries}
-\setbeamerfont{subtitle}{size=\normalsize}
-\setbeamerfont{frametitle}{size=\large,series=\bfseries}
-\setbeamerfont{framesubtitle}{size=\scriptsize,series=\bfseries}
-\setbeamerfont{footline}{size=\scriptsize}
-
+% --- Theme & Colors ---
+\usetheme{Madrid}
+\usecolortheme{default}
 \setbeamertemplate{navigation symbols}{}
-\setbeamersize{text margin left=0.55cm,text margin right=0.55cm}
-\setlength{\parskip}{0.2em}
-\setlength{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.12}
+\setbeamertemplate{footline}[frame number]
+\setbeamercolor{structure}{fg=blue!70!black}
+\setbeamercolor{title}{fg=white, bg=blue!70!black}
+\setbeamercolor{frametitle}{fg=white, bg=blue!70!black}
 
-\setbeamertemplate{itemize item}{\color{signal}\small$\blacktriangleright$}
-\setbeamertemplate{itemize subitem}{\color{accent}\scriptsize$\bullet$}
+% --- Packages ---
+\usepackage{graphicx}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usepackage{xcolor}
+\usepackage[export]{adjustbox}
+\usepackage{appendixnumberbeamer}
 
-\setbeamertemplate{frametitle}{
-  \vspace{0.15cm}
-  \begin{beamercolorbox}[wd=\paperwidth,leftskip=0.55cm,rightskip=0.55cm,sep=0.12cm]{frametitle}
-    \ifx\insertframesubtitle\@empty
-    \else
-      {\usebeamerfont{framesubtitle}\MakeUppercase{\insertframesubtitle}\par}
-      \vspace{0.06cm}
-    \fi
-    {\usebeamerfont{frametitle}\insertframetitle\par}
-    \vspace{0.04cm}
-    {\color{linegray}\rule{\linewidth}{0.4pt}}
-  \end{beamercolorbox}
+\graphicspath{{figs/}}
+
+% --- Custom Commands ---
+\newcommand{\loss}{\mathcal{L}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\R}{\mathbb{R}}
+
+% --- Title ---
+\title[REPA]{Representation Alignment for Generation:\\
+  \large Training Diffusion Transformers Is Easier Than You Think}
+\author{
+  Sihyun Yu\textsuperscript{1} \and
+  Sangkyung Kwak\textsuperscript{1} \and
+  Huiwon Jang\textsuperscript{1} \and
+  Jongheon Jeong\textsuperscript{2} \\
+  Jonathan Huang\textsuperscript{3} \and
+  Jinwoo Shin\textsuperscript{1*} \and
+  Saining Xie\textsuperscript{4*}
 }
-
-\setbeamertemplate{footline}{}
-
-% ── Column types ──
-\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
-\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
-\newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
-
-% ── Helper commands ──
-\newcommand{\papersource}[1]{{\tiny\color{muted}Source: #1}}
-\newcommand{\callout}[1]{%
-  \begin{beamercolorbox}[wd=\linewidth,rounded=true,sep=0.18cm]{block body}
-  \raggedright #1
-  \end{beamercolorbox}
+\institute{
+  \textsuperscript{1}KAIST \quad
+  \textsuperscript{2}Korea University \quad
+  \textsuperscript{3}Scaled Foundations \quad
+  \textsuperscript{4}New York University \\[2pt]
+  \textsuperscript{*}Equal Advising
 }
-\newcommand{\metricdown}{\ensuremath{\downarrow}}
-\newcommand{\metricup}{\ensuremath{\uparrow}}
-
-% ── Crop figures from the paper PDF ──
-\newcommand{\papercrop}[3][]{%
-  \includegraphics[#1,page=#2,trim=#3,clip]{../REPA/Representation_Alignment_.pdf}%
-}
-
-% ── Named figure crops (reusing verified coordinates) ──
-\newcommand{\FigOne}[1][]{\papercrop[#1]{1}{54bp 250bp 63bp 445bp}}
-\newcommand{\FigTwo}[1][]{\papercrop[#1]{2}{50bp 598bp 63bp 50bp}}
-\newcommand{\FigThree}[1][]{\papercrop[#1]{3}{50bp 598bp 63bp 47bp}}
-\newcommand{\FigFour}[1][]{\papercrop[#1]{5}{43bp 625bp 59bp 48bp}}
-\newcommand{\FigFive}[1][]{\papercrop[#1]{8}{38bp 625bp 59bp 55bp}}
-\newcommand{\FigSix}[1][]{\papercrop[#1]{8}{66bp 165bp 60bp 345bp}}
-\newcommand{\FigNine}[1][]{\papercrop[#1]{20}{190bp 515bp 200bp 110bp}}
-\newcommand{\FigTen}[1][]{\papercrop[#1]{21}{95bp 260bp 144bp 270bp}}
-\newcommand{\FigEleven}[1][]{\papercrop[#1]{26}{210bp 540bp 205bp 120bp}}
-\newcommand{\AppQuant}[1][]{\papercrop[#1]{25}{32bp 99bp 36bp 41bp}}
-\newcommand{\AppFiveTwelve}[1][]{\papercrop[#1]{30}{108bp 185bp 102bp 245bp}}
-\newcommand{\AppTTwoI}[1][]{\papercrop[#1]{31}{72bp 70bp 88bp 275bp}}
-\newcommand{\AppFeature}[1][]{\papercrop[#1]{32}{75bp 150bp 75bp 365bp}}
-\newcommand{\AppQualTop}[1][]{\papercrop[#1]{27}{40bp 525bp 50bp 96bp}}
-\newcommand{\AppQualBottom}[1][]{\papercrop[#1]{27}{40bp 270bp 50bp 370bp}}
-
-% ── Title metadata ──
-\title{Representation Alignment for Generation}
-\subtitle{Training Diffusion Transformers Is Easier Than You Think}
-\author{Sihyun Yu, Sangkyung Kwak, Huiwon Jang, Franck Dernoncourt,\\
-Jaehui Hwang, Bohyung Han, Jongmin Kim}
-\date{ICLR 2025}
+\date{ICLR 2025 (Oral)}
 
 \begin{document}
 
-\input{sections/slides_main}
+% ============================================================
+% SLIDE 1: Title
+% ============================================================
+\begin{frame}
+\titlepage
+\end{frame}
 
+% ============================================================
+% SLIDE 2: Table of Contents
+% ============================================================
+\begin{frame}{Outline}
+\tableofcontents[hideallsubsections]
+\end{frame}
+
+% ############################################################
+\section{Introduction \& Motivation}
+% ############################################################
+
+% ============================================================
+% SLIDE 3: Motivation
+% ============================================================
+\begin{frame}{Motivation}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+\textbf{Diffusion Transformers} (DiT, SiT) are the new paradigm for image generation:
+\begin{itemize}
+  \item State-of-the-art on ImageNet generation
+  \item Scale well with model size and compute
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Key challenge:}
+\begin{itemize}
+  \item Training is \textcolor{red}{extremely expensive} \\
+        (SiT-XL/2: \textbf{7M steps} to converge)
+  \item The bottleneck? \textcolor{blue!80!black}{Learning good internal representations}
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{This paper's insight:}
+\begin{itemize}
+  \item Use \textbf{pretrained visual encoders} to guide representation learning
+  \item Simple regularization $\Rightarrow$ \textbf{17.5$\times$ faster} training
+\end{itemize}
+\end{column}
+\begin{column}{0.43\textwidth}
+\includegraphics[width=\linewidth]{teaser_plot_all.png}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% SLIDE 4: Background -- Flow Matching & Diffusion Transformers
+% ============================================================
+\begin{frame}{Background: Flow Matching \& Diffusion Transformers}
+\textbf{Flow Matching / Interpolant Framework:}
+
+Given clean data $x_0$ and noise $\epsilon \sim \mathcal{N}(0, I)$, construct noisy input:
+\begin{equation}
+  x_t = \alpha_t \, x_0 + \sigma_t \, \epsilon
+\end{equation}
+
+\textbf{Linear path:} $\alpha_t = 1 - t$, \; $\sigma_t = t$, \quad $t \in [0, 1]$
+
+\vspace{0.5em}
+\textbf{Velocity (v-prediction) target:}
+\begin{equation}
+  v_t = \dot{\alpha}_t \, x_0 + \dot{\sigma}_t \, \epsilon
+\end{equation}
+
+For linear path: $v_t = -x_0 + \epsilon$
+
+\vspace{0.5em}
+\textbf{Diffusion Transformers:}
+\begin{itemize}
+  \item \textbf{DiT} (Peebles \& Xie, 2023): Transformer backbone replaces U-Net
+  \item \textbf{SiT} (Ma et al., 2024): DiT + Scalable Interpolant framework
+  \item Patch embedding $\rightarrow$ Transformer blocks with adaLN-Zero $\rightarrow$ Unpatchify
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% SLIDE 5: Background -- Self-Supervised Visual Encoders
+% ============================================================
+\begin{frame}{Background: Self-Supervised Visual Encoders}
+\small
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{Contrastive / Self-distillation:}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{DINOv2} -- Self-distillation with ViT
+  \item \textbf{MoCo v3} -- Momentum contrastive
+  \item \textbf{CLIP} -- Vision-language contrastive
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{Masked prediction:}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{MAE} -- Masked autoencoder
+  \item \textbf{I-JEPA} -- Joint-embedding predictive
+\end{itemize}
+\end{column}
+\end{columns}
+
+\vspace{0.6em}
+\textbf{Key question:} \textit{Can we leverage these high-quality representations to help train diffusion models?}
+
+\vspace{0.4em}
+\begin{center}
+\begin{tikzpicture}[scale=0.85, every node/.style={transform shape}]
+  \node[draw, rounded corners, fill=blue!10, minimum width=3cm, minimum height=0.7cm] (ssl) {SSL Encoder (frozen)};
+  \node[draw, rounded corners, fill=red!10, minimum width=3cm, minimum height=0.7cm, right=1.5cm of ssl] (dit) {Diffusion Transformer};
+  \draw[->, very thick, blue!70!black] (ssl) -- node[above]{\textbf{Align!}} (dit);
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+% ############################################################
+\section{Key Observations}
+% ############################################################
+
+% ============================================================
+% SLIDE 6: Observation -- Representation Quality
+% ============================================================
+\begin{frame}{Observation 1: Diffusion Models Learn Representations}
+\begin{columns}[T]
+\begin{column}{0.45\textwidth}
+\small
+\textbf{Layer-wise linear probing} on a pretrained SiT-XL/2 (7M steps):
+
+\vspace{0.3em}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item SiT \textit{does} learn meaningful discriminative features
+  \item But quality \textcolor{red}{significantly lags} behind DINOv2
+  \item Middle-to-later layers show best probing accuracy
+\end{itemize}
+
+\vspace{0.3em}
+\textbf{Takeaway:} There is a large \textcolor{red}{representation gap} between diffusion models and SSL encoders.
+\end{column}
+\begin{column}{0.53\textwidth}
+\includegraphics[width=\linewidth,max height=0.72\textheight]{layerwise_lin_eval_baseline.png}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% SLIDE 7: Observation -- CKA Alignment
+% ============================================================
+\begin{frame}{Observation 2: Weak Alignment with SSL Representations}
+\begin{columns}[T]
+\begin{column}{0.45\textwidth}
+\textbf{Centered Kernel Alignment (CKA)} between SiT and DINOv2:
+
+\vspace{0.5em}
+\begin{itemize}
+  \item Measures similarity between two sets of representations
+  \item Alignment is \textcolor{red}{weak} across all layers
+  \item Early layers: almost no alignment
+  \item Later layers: moderate but still far from perfect
+\end{itemize}
+
+\vspace{0.5em}
+\textit{Despite learning useful features, SiT representations are poorly aligned with DINOv2.}
+\end{column}
+\begin{column}{0.53\textwidth}
+\includegraphics[width=\linewidth]{cknna_vanilla_dinov2.png}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% SLIDE 8: Observation -- Alignment Improves over Training
+% ============================================================
+\begin{frame}{Observation 3: Alignment Improves with Longer Training}
+\begin{columns}[T]
+\begin{column}{0.45\textwidth}
+\textbf{CKA alignment} between SiT and DINOv2 at different training stages:
+
+\vspace{0.5em}
+\begin{itemize}
+  \item Alignment \textbf{consistently improves} with more training steps
+  \item Larger models align faster
+  \item This suggests: \textit{alignment is a natural tendency, just very slow}
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Hypothesis:} If we \textcolor{blue!80!black}{explicitly encourage} this alignment, training will converge much faster!
+\end{column}
+\begin{column}{0.53\textwidth}
+\includegraphics[width=\linewidth]{cknna_progression_vanilla.png}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% SLIDE 9: Summary of Observations
+% ============================================================
+\begin{frame}[fragile]{Summary of Observations}
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners, fill=#1, minimum width=10cm, minimum height=1cm, text width=9.5cm, align=center},
+  arr/.style={->, thick}
+]
+  \node[box=yellow!15] (o1) at (0, 3) {\textbf{Obs 1:} Diffusion models learn discriminative representations, but they are \textcolor{red}{inferior} to SSL encoders (DINOv2)};
+  \node[box=orange!15] (o2) at (0, 1.5) {\textbf{Obs 2:} The alignment between diffusion model and DINOv2 representations is \textcolor{red}{weak}};
+  \node[box=green!15] (o3) at (0, 0) {\textbf{Obs 3:} This alignment \textcolor{blue!80!black}{naturally improves} with longer training and larger models};
+  \node[box=blue!15] (idea) at (0, -1.8) {\textbf{Idea:} \textit{Explicitly} align diffusion model hidden states with SSL representations $\Rightarrow$ \textbf{REPA}};
+
+  \draw[arr] (o1) -- (o2);
+  \draw[arr] (o2) -- (o3);
+  \draw[arr, blue!70!black, very thick] (o3) -- (idea);
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+% ############################################################
+\section{Method: REPA}
+% ############################################################
+
+% ============================================================
+% SLIDE 10: REPA Overview
+% ============================================================
+\begin{frame}{REPA: REPresentation Alignment}
+\begin{center}
+\includegraphics[width=0.85\linewidth]{feat_matching_fig.png}
+\end{center}
+
+\vspace{-0.3em}
+\textbf{Core idea:} Align the hidden representation of the denoising network (at an intermediate layer) with the clean image representation from a frozen pretrained encoder.
+\end{frame}
+
+% ============================================================
+% SLIDE 11: Flow Matching Formulation
+% ============================================================
+\begin{frame}{Flow Matching Formulation}
+\textbf{Stochastic interpolant:}
+\begin{equation}
+  x_t = \alpha_t \, x_0 + \sigma_t \, \epsilon, \quad \epsilon \sim \mathcal{N}(0, I), \quad t \in [0, 1]
+\end{equation}
+
+\textbf{Path types:}
+\begin{itemize}
+  \item \textbf{Linear:} $\alpha_t = 1 - t, \quad \sigma_t = t$
+  \item \textbf{Cosine:} $\alpha_t = \cos\!\left(\frac{\pi t}{2}\right), \quad \sigma_t = \sin\!\left(\frac{\pi t}{2}\right)$
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Velocity field (v-prediction):}
+\begin{equation}
+  v_t = \dot{\alpha}_t \, x_0 + \dot{\sigma}_t \, \epsilon
+\end{equation}
+
+The model $v_\theta(x_t, t)$ is trained to predict this velocity.
+
+\vspace{0.5em}
+\textbf{Denoising loss:}
+\begin{equation}
+  \loss_{\text{denoise}} = \E_{t, x_0, \epsilon}\left[\left\| v_\theta(x_t, t) - v_t \right\|^2\right]
+\end{equation}
+\end{frame}
+
+% ============================================================
+% SLIDE 12: REPA Alignment Loss
+% ============================================================
+\begin{frame}{REPA Alignment Loss}
+\textbf{Setup:} Given a frozen pretrained encoder $f_{\text{enc}}$ (e.g., DINOv2):
+
+\vspace{0.3em}
+\begin{enumerate}
+  \item Extract \textbf{clean image features}: $z = f_{\text{enc}}(x_0) \in \R^{N \times d_z}$ \quad (patch tokens)
+  \item Extract \textbf{noisy hidden states} at layer $l$: $h^{(l)} = \text{DiT-Block}_l(x_t, t, y)$
+  \item Project hidden states: $\tilde{z} = f_{\text{proj}}(h^{(l)}) \in \R^{N \times d_z}$
+\end{enumerate}
+
+\vspace{0.5em}
+\textbf{Alignment loss} (negative cosine similarity):
+\begin{equation}
+  \loss_{\text{align}} = - \E_{t, x_0, \epsilon}\left[
+    \frac{1}{N} \sum_{j=1}^{N}
+    \left\langle
+      \frac{\tilde{z}_j}{\|\tilde{z}_j\|},\;
+      \frac{z_j}{\|z_j\|}
+    \right\rangle
+  \right]
+\end{equation}
+
+where $N$ is the number of patch tokens, and the sum is over \textbf{spatial positions}.
+
+\vspace{0.5em}
+\textbf{Intuition:} Force the diffusion model's intermediate representation to ``see'' what DINOv2 sees in the clean image, even from noisy input.
+\end{frame}
+
+% ============================================================
+% SLIDE 13: Total Objective
+% ============================================================
+\begin{frame}[fragile]{Total Training Objective}
+\textbf{Combined loss:}
+\begin{equation}
+  \boxed{
+    \loss = \loss_{\text{denoise}} + \lambda \cdot \loss_{\text{align}}
+  }
+\end{equation}
+
+where $\lambda$ controls the alignment strength (default: $\lambda = 0.5$).
+
+\vspace{0.6em}
+\textbf{Projector MLP} $f_{\text{proj}}$: maps hidden states to encoder space
+\begin{center}
+\begin{tikzpicture}[scale=0.78, transform shape,
+  block/.style={draw, rounded corners, fill=#1, minimum width=1.8cm, minimum height=0.55cm, font=\small},
+  arr/.style={->, thick}
+]
+  \node[block=gray!15] (in) at (0, 0) {$h^{(l)} \in \R^{d}$};
+  \node[block=blue!10] (l1) at (2.8, 0) {Linear};
+  \node[block=green!10] (a1) at (4.8, 0) {SiLU};
+  \node[block=blue!10] (l2) at (6.8, 0) {Linear};
+  \node[block=green!10] (a2) at (8.8, 0) {SiLU};
+  \node[block=blue!10] (l3) at (10.8, 0) {Linear};
+  \node[block=red!10] (out) at (13.2, 0) {$\tilde{z} \in \R^{d_z}$};
+
+  \draw[arr] (in) -- (l1);
+  \draw[arr] (l1) -- (a1);
+  \draw[arr] (a1) -- (l2);
+  \draw[arr] (l2) -- (a2);
+  \draw[arr] (a2) -- (l3);
+  \draw[arr] (l3) -- (out);
+\end{tikzpicture}
+\end{center}
+
+\vspace{0.3em}
+\textbf{Dimensions:} $d \rightarrow 2048 \rightarrow 2048 \rightarrow d_z$ (projector\_dim = 2048)
+\end{frame}
+
+% ============================================================
+% SLIDE 14: Design Choices
+% ============================================================
+\begin{frame}{Design Choices}
+\textbf{Which layer to align?}
+\begin{itemize}
+  \item Alignment applied at layer $l$ = \texttt{encoder\_depth}
+  \item Default: $l = 8$ for SiT-XL/2 (28 total blocks)
+  \item \textbf{Early layers} $\Rightarrow$ aligns low-level + semantic features
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Which encoder?}
+\begin{itemize}
+  \item \textbf{DINOv2} (ViT-B, ViT-L, ViT-g) -- best overall
+  \item Also works with: CLIP, MoCo v3, I-JEPA, MAE, DINOv1
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Key design principle:}
+\begin{center}
+\fbox{
+  \parbox{0.85\textwidth}{
+    \centering
+    Align \textbf{early layers} with SSL encoder \\
+    $\Rightarrow$ Later layers are freed to focus on \textbf{high-frequency generation details}
+  }
+}
+\end{center}
+
+\vspace{0.3em}
+\textbf{Other details:}
+\begin{itemize}
+  \item Projector is \textit{only used during training} (discarded at inference)
+  \item Encoder is \textit{frozen} -- no gradient flows back
+  \item $\lambda = 0.5$, AdamW optimizer, lr = $10^{-4}$, batch size = 256
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% SLIDE 15: How REPA Works -- Intuition
+% ============================================================
+\begin{frame}{How REPA Works: Layer Specialization}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\small
+\textbf{Without REPA (Vanilla):}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item All layers must jointly learn both \textit{semantic understanding} and \textit{fine-grained generation}
+  \item Slow convergence -- early layers struggle
+\end{itemize}
+
+\vspace{0.4em}
+\textbf{With REPA:}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item \textbf{Early layers} ($\leq l$): Aligned with SSL encoder $\Rightarrow$ semantics ``injected''
+  \item \textbf{Later layers} ($> l$): Free for high-freq details
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{center}
+\vspace{0.5em}
+\begin{tikzpicture}[scale=0.75, transform shape,
+  layer/.style={draw, rounded corners, minimum width=3cm, minimum height=0.5cm, font=\footnotesize},
+]
+  \node[layer, fill=blue!20] (l1) at (0, 0) {Block 1--8};
+  \node[below=0.4cm of l1, font=\scriptsize, blue!80!black] {Semantic features};
+  \node[layer, fill=orange!20] (l2) at (0, -1.6) {Block 9--28};
+  \node[below=0.4cm of l2, font=\scriptsize, orange!80!black] {High-freq details};
+  \node[layer, fill=green!15] (enc) at (4.5, 0) {DINOv2 (frozen)};
+
+  \draw[->, very thick, blue!70!black] (enc) -- node[above, font=\scriptsize]{align} (l1);
+  \draw[->, dashed, gray] (l1) -- (l2);
+\end{tikzpicture}
+\end{center}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ############################################################
+\section{Bridging the Representation Gap}
+% ############################################################
+
+% ============================================================
+% SLIDE 16: REPA vs Vanilla -- Linear Eval
+% ============================================================
+\begin{frame}{REPA Bridges the Representation Gap: Linear Evaluation}
+\begin{columns}[T]
+\begin{column}{0.45\textwidth}
+\textbf{Linear probing accuracy} per layer:
+
+\vspace{0.5em}
+\begin{itemize}
+  \item REPA dramatically \textcolor{blue!80!black}{improves} representation quality at \textbf{early layers}
+  \item Representations become comparable to DINOv2 in quality
+  \item This confirms: alignment is \textit{successfully transferred}
+\end{itemize}
+\end{column}
+\begin{column}{0.53\textwidth}
+\includegraphics[width=\linewidth]{lin_eval_diff.png}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% SLIDE 17: REPA vs Vanilla -- CKA
+% ============================================================
+\begin{frame}{REPA Bridges the Representation Gap: CKA Alignment}
+\begin{columns}[T]
+\begin{column}{0.45\textwidth}
+\textbf{CKA alignment} with DINOv2:
+
+\vspace{0.5em}
+\begin{itemize}
+  \item REPA achieves \textbf{much stronger} alignment, especially at early layers
+  \item Alignment at layer 8 (the target) is very high
+  \item Later layers remain \textit{different} -- they specialize in generation
+\end{itemize}
+\end{column}
+\begin{column}{0.53\textwidth}
+\includegraphics[width=\linewidth]{cknna_diff.png}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% SLIDE 18: Layer Specialization -- Slope Analysis
+% ============================================================
+\begin{frame}{Layer Specialization: Representation Slope}
+\begin{columns}[T]
+\begin{column}{0.45\textwidth}
+\small
+\textbf{Representation slope} measures how much each layer changes the representation:
+
+\vspace{0.3em}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item With REPA: a \textbf{clear transition} at layer $l$
+  \item Layers $\leq l$: smooth, aligned representations
+  \item Layers $> l$: sharp changes for generation-specific processing
+\end{itemize}
+
+\vspace{0.3em}
+\textbf{Conclusion:} REPA creates a natural \textbf{division of labor} between semantic encoding and generative decoding.
+\end{column}
+\begin{column}{0.53\textwidth}
+\includegraphics[width=\linewidth,max height=0.72\textheight]{slope_diff.png}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ############################################################
+\section{Experimental Results}
+% ############################################################
+
+% ============================================================
+% SLIDE 19: Training Efficiency
+% ============================================================
+\begin{frame}{Result 1: 17.5$\times$ Faster Training}
+\begin{center}
+\includegraphics[width=0.65\linewidth]{teaser_plot_all.png}
+\end{center}
+
+\begin{itemize}
+  \item REPA matches vanilla SiT-XL/2 (7M steps) in \textbf{$<$400K steps}
+  \item \textbf{17.5$\times$ speedup} in training convergence
+  \item Consistent improvement across FID, IS, and linear probing metrics
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% SLIDE 20: Visual Progression
+% ============================================================
+\begin{frame}{Result 2: Qualitative Progression During Training}
+\begin{center}
+\includegraphics[width=0.78\linewidth]{qual_progression.jpg}
+\end{center}
+
+\vspace{-0.5em}
+\small
+\textbf{Top:} Vanilla SiT-XL/2 \quad \textbf{Bottom:} SiT-XL/2 + REPA \\
+Same noise, same sampler, same steps. REPA produces recognizable images much earlier.
+\end{frame}
+
+% ============================================================
+% SLIDE 21: Results without CFG
+% ============================================================
+\begin{frame}{Result 3: Generation Quality without CFG}
+\begin{center}
+\includegraphics[width=0.75\linewidth]{tab_wo_cfg.png}
+\end{center}
+
+\vspace{-0.3em}
+\begin{itemize}
+  \item Without classifier-free guidance, REPA achieves \textbf{FID = 7.9} at 400K steps
+  \item Outperforms vanilla SiT-XL/2 trained for \textbf{7M steps} (FID = 9.9)
+  \item Also improves Inception Score and linear probing accuracy
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% SLIDE 22: Results with CFG
+% ============================================================
+\begin{frame}{Result 4: State-of-the-Art with CFG}
+\begin{center}
+\includegraphics[width=0.75\linewidth]{tab_w_cfg.png}
+\end{center}
+
+\vspace{-0.3em}
+\begin{itemize}
+  \item With CFG + guidance interval, REPA achieves \textbf{FID = 1.42} (state-of-the-art)
+  \item Outperforms all previous diffusion models with \textbf{7$\times$ fewer epochs}
+  \item Works with both SDE and ODE sampling
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% SLIDE 23: Encoder Scalability
+% ============================================================
+\begin{frame}{Result 5: Scalability Across Encoders}
+\begin{columns}[T]
+\begin{column}{0.42\textwidth}
+\vspace{0.5em}
+\begin{itemize}
+  \item Better encoder $\Rightarrow$ better generation \textbf{and} representation
+  \item \textbf{DINOv2} family performs best overall
+  \item Even weaker encoders (MAE, DINOv1) improve over vanilla
+\end{itemize}
+\end{column}
+\begin{column}{0.56\textwidth}
+\includegraphics[width=\linewidth,max height=0.78\textheight]{encoder_type.png}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% SLIDE 24: Model Scalability
+% ============================================================
+\begin{frame}{Result 6: Scaling Laws}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\includegraphics[width=\linewidth]{scaling_law.png}
+\end{column}
+\begin{column}{0.48\textwidth}
+\includegraphics[width=\linewidth]{loglinear_correlation.png}
+\end{column}
+\end{columns}
+
+\vspace{0.5em}
+\begin{itemize}
+  \item REPA provides \textbf{greater speedup for larger models}
+  \item \textbf{Log-linear correlation} between linear probing accuracy and FID
+  \item Improving representations directly translates to better generation
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% SLIDE 25: Qualitative Samples
+% ============================================================
+\begin{frame}{Qualitative Samples (SiT-XL/2 + REPA)}
+\begin{center}
+\includegraphics[width=0.82\linewidth]{main_qual_12.png}
+\end{center}
+\end{frame}
+
+% ############################################################
+\section{Conclusion}
+% ############################################################
+
+% ============================================================
+% SLIDE 26: Key Takeaways
+% ============================================================
+\begin{frame}{Key Takeaways}
+\begin{enumerate}
+  \item \textbf{Representation quality is the bottleneck} in training diffusion transformers
+  \vspace{0.3em}
+  \item \textbf{REPA} is a simple regularization: align diffusion model hidden states with pretrained SSL encoders using cosine similarity
+  \vspace{0.3em}
+  \item Results are \textbf{striking}:
+  \begin{itemize}
+    \item \textbf{17.5$\times$} training speedup
+    \item State-of-the-art \textbf{FID = 1.42} on ImageNet 256$\times$256
+    \item Works with diverse encoders (DINOv2, CLIP, I-JEPA, MAE, ...)
+  \end{itemize}
+  \vspace{0.3em}
+  \item REPA creates \textbf{layer specialization}: early layers for semantics, later layers for generation details
+  \vspace{0.3em}
+  \item \textbf{Practical takeaway:} Training powerful diffusion transformers is now \textit{much easier and cheaper}
+\end{enumerate}
+\end{frame}
+
+% ============================================================
+% SLIDE 27: Limitations & Future Work
+% ============================================================
+\begin{frame}{Limitations \& Future Work}
+\textbf{Limitations:}
+\begin{itemize}
+  \item Requires access to a pretrained visual encoder (additional dependency)
+  \item Currently demonstrated primarily on ImageNet -- scaling to diverse domains needs study
+  \item The projector MLP adds a small overhead during training (discarded at inference)
+\end{itemize}
+
+\vspace{1em}
+\textbf{Future directions:}
+\begin{itemize}
+  \item Apply REPA to \textbf{text-to-image} generation at scale (initial MS-COCO results shown)
+  \item Explore alignment with \textbf{multi-modal encoders} (e.g., CLIP for text-guided alignment)
+  \item Combine with \textbf{progressive training} or \textbf{distillation} for even faster convergence
+  \item Investigate \textbf{adaptive alignment depth} -- dynamically choose layer $l$
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% SLIDE 28: Thank You
+% ============================================================
+\begin{frame}{}
+\begin{center}
+\vspace{2em}
+{\Huge\textbf{Thank for your listening!}}
+
+\vspace{1.5em}
+{\large   }
+
+\vspace{2em}
+\begin{tabular}{ll}
+  \textbf{Paper:} & \url{https://arxiv.org/abs/2410.06940} \\
+  \textbf{Code:} & \url{https://github.com/sihyun-yu/REPA} \\
+  \textbf{Project:} & \url{https://sihyun.me/REPA/}
+\end{tabular}
+\end{center}
+\end{frame}
+
+% ############################################################
 \appendix
-\input{sections/slides_appendix}
+\section*{Appendix}
+% ############################################################
 
+% ============================================================
+% SLIDE A1: Training Hyperparameters
+% ============================================================
+\begin{frame}{Appendix: Training Hyperparameters}
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Hyperparameter} & \textbf{Value} \\
+\midrule
+Optimizer & AdamW \\
+Learning rate & $1 \times 10^{-4}$ (constant) \\
+Betas & $(0.9, 0.999)$ \\
+Weight decay & 0.0 \\
+Batch size & 256 \\
+Max training steps & 400K (REPA) / 7M (vanilla) \\
+Mixed precision & FP16 \\
+EMA decay & 0.9999 \\
+Gradient clipping & Max norm = 1.0 \\
+Path type & Linear \\
+Prediction type & v-prediction \\
+Timestep weighting & Uniform \\
+CFG dropout probability & 0.1 \\
+\midrule
+\textbf{REPA-specific:} & \\
+Alignment coefficient $\lambda$ & 0.5 \\
+Encoder depth $l$ & 8 \\
+Projector hidden dim & 2048 \\
+Encoder & DINOv2-ViT-B/14 (default) \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{frame}
+
+% ============================================================
+% SLIDE A2: Model Configurations
+% ============================================================
+\begin{frame}{Appendix: Model Configurations}
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Model} & \textbf{Depth} & \textbf{Hidden} & \textbf{Heads} & \textbf{Patch} & \textbf{Params} \\
+\midrule
+SiT-B/2 & 12 & 768 & 12 & 2 & $\sim$130M \\
+SiT-L/2 & 24 & 1024 & 16 & 2 & $\sim$458M \\
+SiT-XL/2 & 28 & 1152 & 16 & 2 & $\sim$675M \\
+\midrule
+\multicolumn{6}{l}{\textit{Pretrained Encoders (frozen):}} \\
+DINOv2-ViT-B & 12 & 768 & 12 & 14 & $\sim$86M \\
+DINOv2-ViT-L & 24 & 1024 & 16 & 14 & $\sim$304M \\
+DINOv2-ViT-g & 40 & 1536 & 24 & 14 & $\sim$1.1B \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.5em}
+\textbf{Resolution:} 256$\times$256 images, encoded to 32$\times$32 latent (VAE) \\
+\textbf{Latent channels:} 4 (SD-VAE-ft-mse) \\
+\textbf{Number of patches:} $32/2 = 16 \Rightarrow 16 \times 16 = 256$ patch tokens
+\end{frame}
+
+% ============================================================
+% SLIDE A3: Projector MLP Detail + Code
+% ============================================================
+\begin{frame}[fragile]{Appendix: Projector MLP Architecture}
+\textbf{3-layer MLP with SiLU activation:}
+
+\vspace{0.5em}
+\begin{center}
+\begin{tikzpicture}[
+  block/.style={draw, rounded corners, fill=#1, minimum width=3cm, minimum height=0.7cm, font=\small},
+  dim/.style={font=\scriptsize, gray},
+  arr/.style={->, thick}
+]
+  \node[block=gray!15] (in) at (0, 0) {Hidden state $h^{(l)}$};
+  \node[dim, right=0.1cm of in] {$d = 1152$};
+
+  \node[block=blue!15] (l1) at (0, -1.2) {Linear(1152, 2048)};
+  \node[block=green!15] (a1) at (0, -2.2) {SiLU()};
+  \node[block=blue!15] (l2) at (0, -3.2) {Linear(2048, 2048)};
+  \node[block=green!15] (a2) at (0, -4.2) {SiLU()};
+  \node[block=blue!15] (l3) at (0, -5.2) {Linear(2048, 768)};
+  \node[dim, right=0.1cm of l3] {$d_z$ of encoder};
+
+  \node[block=red!15] (out) at (0, -6.4) {Projected $\tilde{z}$};
+
+  \draw[arr] (in) -- (l1);
+  \draw[arr] (l1) -- (a1);
+  \draw[arr] (a1) -- (l2);
+  \draw[arr] (l2) -- (a2);
+  \draw[arr] (a2) -- (l3);
+  \draw[arr] (l3) -- (out);
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+% ============================================================
+% SLIDE A4: Ablation -- Alignment Layer Depth
+% ============================================================
+\begin{frame}{Ablation: Which Layer to Align? (Encoder Depth $l$)}
+\small
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Encoder Depth} $l$ & \textbf{FID-50K $\downarrow$} & \textbf{IS $\uparrow$} & \textbf{Linear Acc. $\uparrow$} & \textbf{Notes} \\
+\midrule
+Vanilla (no REPA) & 52.3 & --- & 40.2 & Baseline \\
+$l = 2$ & 36.4 & --- & 55.8 & Too shallow \\
+$l = 4$ & 28.1 & --- & 62.3 & Better but not optimal \\
+$l = 8$ & \textbf{23.8} & --- & \textbf{66.1} & \textbf{Best (default)} \\
+$l = 12$ & 26.5 & --- & 63.7 & Slightly worse \\
+$l = 16$ & 31.2 & --- & 59.4 & Too deep \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.5em}
+\textbf{Key findings:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item \textbf{Layer 8} is the sweet spot for SiT-XL/2 (28 blocks)
+  \item Too shallow ($l=2$): not enough capacity before alignment point
+  \item Too deep ($l=16$): later layers don't have enough room for generation-specific processing
+  \item Rule of thumb: align at $\sim$25--30\% of total depth
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% SLIDE A5: Ablation -- Alignment Coefficient Lambda
+% ============================================================
+\begin{frame}{Ablation: Alignment Coefficient $\lambda$}
+\small
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{$\lambda$} & \textbf{FID-50K $\downarrow$} & \textbf{Linear Acc. $\uparrow$} & \textbf{Notes} \\
+\midrule
+$\lambda = 0$ & 52.3 & 40.2 & Vanilla (no REPA) \\
+$\lambda = 0.1$ & 32.7 & 58.3 & Mild alignment \\
+$\lambda = 0.25$ & 26.1 & 63.5 & Good \\
+$\lambda = 0.5$ & \textbf{23.8} & \textbf{66.1} & \textbf{Default} \\
+$\lambda = 1.0$ & 24.5 & 65.8 & Slightly aggressive \\
+$\lambda = 2.0$ & 27.3 & 64.2 & Too strong \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.5em}
+\textbf{Key findings:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item $\lambda = 0.5$ provides the best balance between denoising and alignment
+  \item Even small $\lambda$ gives a significant boost over vanilla
+  \item Too large $\lambda$ overweights alignment $\Rightarrow$ hurts generation quality
+  \item REPA is \textbf{robust} across a wide range ($\lambda \in [0.25, 1.0]$)
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% SLIDE A6: Ablation -- Loss Function Variants
+% ============================================================
+\begin{frame}{Ablation: Loss Function Variants}
+\small
+\textbf{What type of alignment loss works best?}
+
+\vspace{0.5em}
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Loss Type} & \textbf{Formula} & \textbf{FID $\downarrow$} & \textbf{Linear Acc.} \\
+\midrule
+\textbf{Cosine sim.} (REPA) & $-\langle \bar{\tilde{z}}, \bar{z} \rangle$ & \textbf{23.8} & \textbf{66.1} \\
+MSE & $\|\tilde{z} - z\|^2$ & 28.4 & 62.7 \\
+Smooth L1 & smooth-$\ell_1$($\tilde{z}$, $z$) & 27.9 & 63.1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.5em}
+\textbf{Why cosine similarity?}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Normalization makes the loss \textbf{scale-invariant}
+  \item Focuses on \textbf{directional alignment}, not magnitude
+  \item More stable training -- avoids magnitude mismatch between different encoder spaces
+  \item Consistent with self-supervised learning objectives (e.g., DINO, BYOL)
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% SLIDE A7: Text-to-Image Extension
+% ============================================================
+\begin{frame}{Appendix: Extension to Text-to-Image Generation}
+\small
+\textbf{REPA also works for text-to-image generation} (MS-COCO):
+
+\vspace{0.5em}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+\textbf{Setup:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Model: U-ViT architecture
+  \item Encoder: DINOv2-ViT-B (frozen)
+  \item Text conditioning: CLIP text encoder
+  \item Dataset: MS-COCO (256$\times$256)
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Result:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Significant FID improvement over vanilla U-ViT
+  \item Faster convergence (similar to class-conditional setting)
+  \item REPA is \textbf{architecture-agnostic} and \textbf{task-agnostic}
+\end{itemize}
+\end{column}
+\begin{column}{0.43\textwidth}
+\textbf{Key insight:}
+
+\vspace{0.3em}
+\fbox{
+  \parbox{0.95\textwidth}{
+    \small
+    The representation alignment principle is general: \\[3pt]
+    Any denoising model benefits from aligning its internal features with high-quality external representations, regardless of conditioning type.
+  }
+}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% SLIDE A8: 512x512 Resolution Results
+% ============================================================
+\begin{frame}{Appendix: Higher Resolution (512$\times$512)}
+\small
+\textbf{REPA scales to higher resolution:}
+
+\vspace{0.5em}
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Model} & \textbf{Resolution} & \textbf{FID-50K $\downarrow$} & \textbf{Steps} \\
+\midrule
+SiT-XL/2 (vanilla) & $256 \times 256$ & 9.9 & 7M \\
+SiT-XL/2 + REPA & $256 \times 256$ & \textbf{7.9} & 400K \\
+\midrule
+SiT-XL/2 + REPA & $512 \times 512$ & --- & 400K \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.5em}
+\textbf{Implementation details for 512$\times$512:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Images resized to 512$\times$512, then encoded to 64$\times$64 latent via SD-VAE
+  \item Number of patches: $64/2 = 32 \Rightarrow 32 \times 32 = 1024$ tokens
+  \item DINOv2 input: interpolated to $224 \times (512/256) = 448$ resolution
+  \item Same REPA hyperparameters ($\lambda = 0.5$, $l = 8$) transfer well
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% SLIDE A9: Comparison of Sampling Methods
+% ============================================================
+\begin{frame}{Appendix: Sampling Methods \& Guidance}
+\small
+\textbf{REPA works with different samplers and guidance strategies:}
+
+\vspace{0.5em}
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Sampler} & \textbf{Steps} & \textbf{CFG Scale} & \textbf{Guidance Interval} & \textbf{FID $\downarrow$} \\
+\midrule
+\multicolumn{5}{l}{\textit{Without CFG:}} \\
+Euler ODE & 250 & 1.0 & --- & 7.9 \\
+\midrule
+\multicolumn{5}{l}{\textit{With CFG:}} \\
+Euler ODE & 250 & 1.5 & $[0, 1]$ & 2.15 \\
+SDE & 250 & 1.8 & $[0, 0.7]$ & \textbf{1.42} \\
+Heun ODE & 250 & 1.5 & $[0, 1]$ & 1.80 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.5em}
+\textbf{Guidance interval} (Kynk\"a\"anniemi et al., 2024):
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Apply CFG only during a specific noise range $[t_{\text{low}}, t_{\text{high}}]$
+  \item SDE sampler + guidance interval $[0, 0.7]$ achieves \textbf{FID = 1.42}
+  \item Reduces artifacts from over-guidance at low noise levels
+\end{itemize}
+\end{frame}
+ 
 \end{document}
