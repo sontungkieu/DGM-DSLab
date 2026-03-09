@@ -206,7 +206,7 @@ For linear path: $v_t = -x_0 + \epsilon$
 \begin{frame}{Observation 2: Weak Alignment with SSL Representations}
 \begin{columns}[T]
 \begin{column}{0.45\textwidth}
-\textbf{Centered Kernel Alignment (CKA)} between SiT and DINOv2:
+\textbf{CKNNA} (Centered Kernel Nearest-Neighbor Alignment; Huh et al., 2024) between SiT and DINOv2:
 
 \vspace{0.5em}
 \begin{itemize}
@@ -231,7 +231,7 @@ For linear path: $v_t = -x_0 + \epsilon$
 \begin{frame}{Observation 3: Alignment Improves with Longer Training}
 \begin{columns}[T]
 \begin{column}{0.45\textwidth}
-\textbf{CKA alignment} between SiT and DINOv2 at different training stages:
+\textbf{CKNNA} between SiT and DINOv2 at different training stages:
 
 \vspace{0.5em}
 \begin{itemize}
@@ -399,7 +399,7 @@ where $\lambda$ controls the alignment strength (default: $\lambda = 0.5$).
 \end{center}
 
 \vspace{0.3em}
-\textbf{Dimensions:} $d \rightarrow 2048 \rightarrow 2048 \rightarrow d_z$ (projector\_dim = 2048)
+\textbf{Architecture:} 3-layer MLP with SiLU activations; maps $h^{(l)} \in \R^d$ to the encoder feature space $\R^{d_z}$.
 \end{frame}
 
 % ============================================================
@@ -417,7 +417,7 @@ where $\lambda$ controls the alignment strength (default: $\lambda = 0.5$).
 \textbf{Which encoder?}
 \begin{itemize}
   \item \textbf{DINOv2} (ViT-B, ViT-L, ViT-g) -- best overall
-  \item Also works with: CLIP, MoCo v3, I-JEPA, MAE, DINOv1
+  \item Also works with: CLIP, MoCo v3, I-JEPA, MAE, DINO
 \end{itemize}
 
 \vspace{0.5em}
@@ -508,13 +508,13 @@ where $\lambda$ controls the alignment strength (default: $\lambda = 0.5$).
 \end{frame}
 
 % ============================================================
-% SLIDE 17: REPA vs Vanilla -- CKA
+% SLIDE 17: REPA vs Vanilla -- CKNNA
 % ============================================================
-\begin{frame}{REPA Bridges the Representation Gap: CKA Alignment}
+\begin{frame}{REPA Bridges the Representation Gap: CKNNA Alignment}
 \begin{columns}[T]
 \begin{column}{0.45\textwidth}
 \small
-\textbf{CKA alignment} with DINOv2:
+\textbf{CKNNA} with DINOv2:
 
 \vspace{0.3em}
 \begin{itemize}\setlength{\itemsep}{2pt}
@@ -530,23 +530,23 @@ where $\lambda$ controls the alignment strength (default: $\lambda = 0.5$).
 \end{frame}
 
 % ============================================================
-% SLIDE 18: Layer Specialization -- Slope Analysis
+% SLIDE 18: Bridging the Gap -- Acc-FID Frontier (Figure 3c)
 % ============================================================
-\begin{frame}{Layer Specialization: Representation Slope}
+\begin{frame}{Bridging the Gap: Generation--Representation Frontier (Figure 3c)}
 \begin{columns}[T]
 \begin{column}{0.45\textwidth}
 \small
-\textbf{Representation slope} measures how much each layer changes the representation:
+\textbf{Acc. vs.\ FID frontier} -- does better representation mean better generation?
 
 \vspace{0.3em}
 \begin{itemize}\setlength{\itemsep}{2pt}
-  \item With REPA: a \textbf{clear transition} at layer $l$
-  \item Layers $\leq l$: smooth, aligned representations
-  \item Layers $> l$: sharp changes for generation-specific processing
+  \item Plot: Validation Acc.\ ($\uparrow$) vs.\ FID-50K ($\downarrow$) at different training iterations
+  \item Vanilla SiT-XL/2: slow progress on both axes
+  \item REPA: simultaneously \textbf{better FID and better Acc.} within the same iterations
 \end{itemize}
 
 \vspace{0.3em}
-\textbf{Conclusion:} REPA creates a natural \textbf{division of labor} between semantic encoding and generative decoding.
+\textbf{Conclusion:} REPA \textit{pushes the generation--representation envelope} -- improved alignment directly boosts generation quality (Figure 3c, paper).
 \end{column}
 \begin{column}{0.53\textwidth}
 \includegraphics[width=\linewidth,max height=0.72\textheight]{slope_diff.png}
@@ -602,7 +602,7 @@ Same noise, same sampler, same steps. REPA produces recognizable images much ear
 \vspace{0.5em}
 \begin{itemize}\setlength{\itemsep}{4pt}
   \item Without CFG, REPA achieves \textbf{FID = 7.9} at only 400K steps
-  \item Outperforms vanilla SiT-XL/2 trained for \textbf{7M steps} (FID = 9.9)
+  \item Outperforms vanilla SiT-XL/2 trained for \textbf{7M steps} (FID = 8.3)
   \item Also improves Inception Score and linear probing accuracy
 \end{itemize}
 \end{column}
@@ -623,7 +623,7 @@ Same noise, same sampler, same steps. REPA produces recognizable images much ear
 \begin{itemize}\setlength{\itemsep}{4pt}
   \item With CFG + guidance interval, REPA achieves \textbf{FID = 1.42} (state-of-the-art)
   \item Outperforms all previous diffusion models with \textbf{7$\times$ fewer epochs}
-  \item Works with both SDE and ODE sampling
+  \item Main results use \textbf{SDE} (Euler-Maruyama, NFE=250) sampler
 \end{itemize}
 \end{column}
 \begin{column}{0.56\textwidth}
@@ -642,7 +642,7 @@ Same noise, same sampler, same steps. REPA produces recognizable images much ear
 \begin{itemize}
   \item Better encoder $\Rightarrow$ better generation \textbf{and} representation
   \item \textbf{DINOv2} family performs best overall
-  \item Even weaker encoders (MAE, DINOv1) improve over vanilla
+  \item Even weaker encoders (MAE, DINO) improve over vanilla
 \end{itemize}
 \end{column}
 \begin{column}{0.56\textwidth}
@@ -658,8 +658,8 @@ Same noise, same sampler, same steps. REPA produces recognizable images much ear
 \small
 \begin{itemize}\setlength{\itemsep}{1pt}
   \item REPA provides \textbf{greater speedup for larger models}
-  \item \textbf{Log-linear correlation} between linear probing accuracy and FID
-  \item Improving representations directly translates to better generation
+  \item Strong \textbf{negative correlation} between linear probing accuracy and FID: better representation $\Rightarrow$ better generation
+  \item Larger models show \textbf{steeper improvement} in both Acc.\ and FID with longer training
 \end{itemize}
 \vspace{0.3em}
 \begin{columns}[c]
@@ -915,7 +915,7 @@ XL/2 & 28 & 1152 & 16 \\
 % ============================================================
 \begin{frame}{Appendix C: CKNNA Metric Definition}
 \small
-\textbf{CKNNA = Centered Kernel Alignment with $k$-Nearest Neighbors:}
+\textbf{CKNNA = Centered Kernel Nearest-Neighbor Alignment:}
 
 \vspace{0.4em}
 Original CKA (Kornblith et al., 2019):
@@ -958,7 +958,7 @@ $(\beta_1, \beta_2)$ & $(0.9,\,0.999)$ \\
 Weight decay & 0 \\
 Batch size & 256 \\
 Mixed precision & FP16 \\
-Grad clipping & norm $\leq 1.0$ \\
+Grad clipping & yes (fp16 training) \\
 Sampler (eval) & SDE EM, NFE=250 \\
 Last SDE step & 0.04 \\
 \bottomrule
@@ -974,7 +974,6 @@ $\lambda$ & 0.5 \\
 Encoder depth $l$ & 8 \\
 Encoder & DINOv2-B \\
 Similarity & Cos.\ sim. \\
-Projector dim & 2048 \\
 Iterations & 400K / 4M \\
 \bottomrule
 \end{tabular}
@@ -1167,28 +1166,32 @@ and task-agnostic.}
 \small
 \textbf{PCA visualization similar to DINOv2 -- analyzing features by layer and timestep:}
 
-\vspace{0.4em}
+\vspace{0.3em}
 \begin{columns}[T]
-\begin{column}{0.50\textwidth}
+\begin{column}{0.38\textwidth}
 \textbf{With REPA (SiT-XL/2+REPA):}
 \begin{itemize}\setlength{\itemsep}{2pt}
   \item Early layers (1--6): \textbf{coarse}, high-level semantic features
   \item Later layers (14--28): \textbf{fine-grained}, local detail features
   \item Clear coarse-to-fine pattern at all timesteps $t$
 \end{itemize}
-\end{column}
-\begin{column}{0.48\textwidth}
+
+\vspace{0.4em}
 \textbf{Without REPA (Vanilla):}
 \begin{itemize}\setlength{\itemsep}{2pt}
   \item Features are \textbf{noisy} at large $t$ ($t=0.7, 0.9$)
   \item No clear hierarchical structure
   \item Weak representation alignment
 \end{itemize}
+
+\vspace{0.3em}
+\scriptsize
+\textbf{Figure 38:} layers $\{1,2,3,4,5,6,7,14,21,28\}$ at $t \in \{0.5, 0.7, 0.9\}$
+\end{column}
+\begin{column}{0.60\textwidth}
+\includegraphics[width=\linewidth, max height=0.85\textheight, keepaspectratio]{fig38.png}
 \end{column}
 \end{columns}
-
-\vspace{0.5em}
-\textbf{Figure 38:} layers $\{1,2,3,4,5,6,7,14,21,28\}$ at $t \in \{0.5, 0.7, 0.9\}$ -- REPA learns SSL-like coarse-to-fine features; vanilla shows noisy, unstructured features.
 \end{frame}
 
 % ============================================================
