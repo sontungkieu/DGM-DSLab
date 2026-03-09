@@ -3,7 +3,7 @@
 > **Ngôn ngữ slide:** Tiếng Anh  
 > **Ngôn ngữ thuyết trình:** Tiếng Việt  
 > **Thời lượng ước tính:** 25–30 phút  
-> **Số slide:** 28 slide chính + 9 slide phụ lục  
+> **Số slide:** 28 slide chính + 3 slide ablation + 13 slide phụ lục (A–M)
 
 ---
 
@@ -318,15 +318,19 @@ Tại sao lại dùng cosine similarity thay vì MSE hay Smooth L1? Kết quả 
 
 ---
 
-## Slide A7: Extension to Text-to-Image (Phụ lục)
+## Slide A7: Text-to-Image Generation — Appendix K (Phụ lục)
 
-REPA không chỉ hoạt động với class-conditional generation mà còn mở rộng được cho **text-to-image**. Nhóm tác giả cũng thử nghiệm trên MS-COCO với kiến trúc U-ViT, dùng DINOv2 làm encoder thị giác và CLIP text encoder cho conditioning. Kết quả cho thấy cải thiện FID đáng kể và hội tụ nhanh hơn — tương tự trường hợp class-conditional. Điều này chứng tỏ nguyên lý alignment biểu diễn là **tổng quát**, không phụ thuộc vào kiến trúc hay loại conditioning.
+Đây là kết quả từ **Appendix K** của paper. Nhóm tác giả thử nghiệm REPA trên bài toán **text-to-image** với dataset MS-COCO. Kiến trúc sử dụng là **MMDiT** — một biến thể của DiT xử lý đồng thời image patches và text embeddings. Mô hình có hidden dim 768, depth 24, CLIP text encoder, và được train 150K iterations.
+
+Kết quả rất rõ ràng: với ODE sampler, FID giảm từ 6.05 xuống còn **4.73**; với SDE sampler, giảm từ 5.30 xuống còn **4.14** — tốt hơn cả U-ViT-S/2 (Deep) được train cùng điều kiện. Điều này xác nhận REPA là phương pháp **kiến trúc-agnostic và task-agnostic**: bất kỳ denoising model nào cũng hưởng lợi từ alignment biểu diễn, dù có text conditioning hay không.
 
 ---
 
-## Slide A8: Higher Resolution 512×512 (Phụ lục)
+## Slide A8: ImageNet 512×512 — Appendix J (Phụ lục)
 
-REPA cũng scale lên được resolution cao hơn. Với ảnh 512×512, ảnh được encode thành latent 64×64, cho ra 1024 patch token (thay vì 256 ở 256×256). DINOv2 nhận ảnh interpolate lên 448 pixels. Đáng chú ý, cùng hyperparameter ($\lambda = 0.5$, $l = 8$) vẫn hoạt động tốt mà không cần tinh chỉnh thêm.
+Đây là kết quả từ **Appendix J**. Setup hoàn toàn giống 256×256, chỉ khác input dimension: SD-VAE encode ảnh 512×512 thành latent 64×64×4, tức 1024 patch token. DINOv2 nhận ảnh resize lên 448×448 với positional embedding interpolation.
+
+Table 11 cho thấy kết quả rất ấn tượng: SiT-XL/2 + REPA chỉ cần **200 epochs** để vượt qua vanilla SiT-XL/2 train **600 epochs** — FID giảm từ 2.62 xuống còn **2.08**, IS tăng từ 252 lên **274.6**. Tức là REPA tiết kiệm hơn **3 lần** số epoch mà vẫn cho kết quả tốt hơn. Ngay cả ở 80 epochs, REPA đã cạnh tranh được với baseline 600 epochs của baseline.
 
 ---
 

@@ -9,6 +9,10 @@
 \setbeamercolor{title}{fg=white, bg=blue!70!black}
 \setbeamercolor{frametitle}{fg=white, bg=blue!70!black}
 
+% --- Encoding ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
 % --- Packages ---
 \usepackage{graphicx}
 \usepackage{amsmath, amssymb}
@@ -724,6 +728,491 @@ Same noise, same sampler, same steps. REPA produces recognizable images much ear
 \end{itemize}
 \end{frame}
 
+% ############################################################
+% ABLATION STUDIES SECTION
+% ############################################################
+\section{Ablation Studies}
+
+% ============================================================
+% SLIDE Abl-1: Ablation -- Alignment Depth (Table 2, real data)
+% ============================================================
+\begin{frame}{Ablation: Alignment Depth $l$ (Table 2)}
+\small
+\textbf{SiT-L/2, 400K iterations, DINOv2-L encoder, NT-Xent loss, without CFG:}
+
+\vspace{0.3em}
+\begin{center}
+\begin{tabular}{ccccccc}
+\toprule
+\textbf{Depth} $l$ & \textbf{FID$\downarrow$} & \textbf{sFID$\downarrow$} & \textbf{IS$\uparrow$} & \textbf{Pre.$\uparrow$} & \textbf{Rec.$\uparrow$} & \textbf{Acc.$\uparrow$} \\
+\midrule
+Vanilla & 18.8 & 5.29 & 72.0 & 0.64 & 0.64 & N/A \\
+6  & 10.3 & 5.23 & 106.5 & 0.69 & 0.65 & 66.2 \\
+\textbf{8}  & \textbf{10.0} & \textbf{5.09} & \textbf{106.6} & \textbf{0.68} & \textbf{0.65} & \textbf{68.1} \\
+10 & 10.5 & 5.50 & 105.0 & 0.68 & 0.65 & 68.6 \\
+12 & 11.2 & 5.14 & 100.2 & 0.68 & 0.64 & 69.4 \\
+14 & 11.6 & 5.61 &  99.5 & 0.67 & 0.65 & 70.0 \\
+16 & 12.1 & 5.34 &  96.1 & 0.67 & 0.64 & 71.1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.4em}
+\textbf{Key findings:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Aligning the \textbf{first 8 layers} gives the best FID for SiT-L/2 (24 blocks total)
+  \item Deeper alignment improves probing accuracy but \emph{hurts} generation quality
+  \item Hypothesis: later layers need freedom to focus on high-frequency details
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% SLIDE Abl-2: Ablation -- Lambda (Table 5, real data)
+% ============================================================
+\begin{frame}{Ablation: Alignment Coefficient $\lambda$ (Table 5)}
+\small
+\textbf{SiT-XL/2, 400K iterations, without CFG:}
+
+\vspace{0.5em}
+\begin{center}
+\begin{tabular}{ccc}
+\toprule
+\textbf{$\lambda$} & \textbf{FID-50K $\downarrow$} & \textbf{IS $\uparrow$} \\
+\midrule
+0.25 & 8.6 & 118.6 \\
+\textbf{0.5}  & \textbf{7.9} & \textbf{122.6} \\
+0.75 & 7.8 & 124.4 \\
+1.0  & 7.8 & 124.8 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.6em}
+\textbf{Key findings:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item $\lambda = 0.5$ chosen as default -- good balance between denoising and alignment
+  \item Results are \textbf{stable} across a wide range $\lambda \in [0.5, 1.0]$
+  \item Even small $\lambda = 0.25$ yields significant improvement over vanilla
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% SLIDE Abl-3: Ablation -- Loss objective (Table 2, real data)
+% ============================================================
+\begin{frame}{Ablation: Alignment Objective (Table 2)}
+\small
+\textbf{SiT-L/2, DINOv2-L, depth=8, 400K iterations, without CFG:}
+
+\vspace{0.5em}
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Objective} & \textbf{FID$\downarrow$} & \textbf{sFID$\downarrow$} & \textbf{IS$\uparrow$} & \textbf{Pre.$\uparrow$} & \textbf{Acc.$\uparrow$} \\
+\midrule
+NT-Xent     & 10.0 & 5.09 & 106.6 & 0.68 & 68.1 \\
+\textbf{Cos.\ sim.} & \textbf{9.9} & \textbf{5.34} & \textbf{111.9} & \textbf{0.68} & \textbf{68.2} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.6em}
+\textbf{Key findings:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item NT-Xent has advantages at early training stages (50--100K iters)
+  \item At 400K iters, \textbf{cosine similarity} achieves equivalent or better results
+  \item Cos.\ sim.\ adopted as default for simplicity and efficiency
+\end{itemize}
+\end{frame}
+
+% ############################################################
+% APPENDIX SECTION
+% ############################################################
+\appendix
+\section*{Appendix}
+
+% ============================================================
+% App-A: Descriptions for Diffusion-Based Models
+% ============================================================
+\begin{frame}{Appendix A: Diffusion-Based Models Used}
+\small
+\textbf{Two main training frameworks used in the paper:}
+
+\vspace{0.5em}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{DiT (Peebles \& Xie, 2023):}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Objective: improved DDPM (Nichol \& Dhariwal, 2021)
+  \item Predicts noise $\epsilon$
+  \item Scheduler: cosine noise
+  \item Patch size: 2 (256$\times$256 $\to$ 256 tokens)
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{SiT (Ma et al., 2024):}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Objective: linear stochastic interpolants
+  \item Predicts velocity $v$
+  \item Sampler: SDE Euler-Maruyama (NFE=250)
+  \item Last SDE step = 0.04 (crucial)
+\end{itemize}
+\end{column}
+\end{columns}
+
+\vspace{0.5em}
+\textbf{Note:} REPA applies to both frameworks; main results use \textbf{SiT} as the SDE sampler yields higher quality.
+\end{frame}
+
+% ============================================================
+% App-B: Diffusion Transformer Architecture
+% ============================================================
+\begin{frame}{Appendix B: Diffusion Transformer Architecture}
+\small
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\textbf{Model configurations (Table 1):}
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Config} & \textbf{Layers} & \textbf{Hidden} & \textbf{Heads} \\
+\midrule
+B/2  & 12 & 768  & 12 \\
+L/2  & 24 & 1024 & 16 \\
+XL/2 & 28 & 1152 & 16 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.3em}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Patch size = 2 ($32{\times}32 \to 256$ tokens)
+  \item VAE latent: $32{\times}32{\times}4$ (SD-VAE)
+  \item Class conditioning via adaLN-Zero
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{DiT Block:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item adaLN-Zero: scale/shift from timestep + class embedding
+  \item Self-Attention (multi-head)
+  \item Feed-Forward (MLP)
+  \item Skip connection + Layer Norm
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{REPA projection:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item 3-layer MLP (SiLU) from $h^{(l)}$
+  \item Attached to first $l$ layers only
+  \item Discarded at inference
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% App-C: Analysis Details (CKNNA metric)
+% ============================================================
+\begin{frame}{Appendix C: CKNNA Metric Definition}
+\small
+\textbf{CKNNA = Centered Kernel Alignment with $k$-Nearest Neighbors:}
+
+\vspace{0.4em}
+Original CKA (Kornblith et al., 2019):
+\[
+\mathrm{CKA}(K, L) = \frac{\mathrm{HSIC}(K,L)}{\sqrt{\mathrm{HSIC}(K,K)\cdot\mathrm{HSIC}(L,L)}}
+\]
+
+CKNNA (Huh et al., 2024) replaces HSIC with $\mathrm{Align}(K,L)$ using:
+\[
+\alpha(i,j;\,k) = \mathbf{1}\bigl[i\neq j\;\wedge\;\phi_j\in\mathrm{knn}(\phi_i;\,k)\;\wedge\;\psi_j\in\mathrm{knn}(\psi_i;\,k)\bigr]
+\]
+
+\vspace{0.3em}
+\textbf{Experimental details:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item $k = 10$ nearest neighbors
+  \item Random sample of \textbf{10,000} ImageNet validation images
+  \item Linear probing: 90 epochs, batch=16384, Adam, cosine decay, LR$=10^{-3}$
+\end{itemize}
+
+\vspace{0.3em}
+CKNNA is more sensitive than CKA for measuring local (neighborhood-level) alignment between feature spaces.
+\end{frame}
+
+% ============================================================
+% App-D: Hyperparameters (Table 7)
+% ============================================================
+\begin{frame}{Appendix D: Training Hyperparameters}
+\small
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\textbf{General hyperparameters:}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Optimizer & AdamW \\
+Learning rate & $10^{-4}$ (constant) \\
+$(\beta_1, \beta_2)$ & $(0.9,\,0.999)$ \\
+Weight decay & 0 \\
+Batch size & 256 \\
+Mixed precision & FP16 \\
+Grad clipping & norm $\leq 1.0$ \\
+Sampler (eval) & SDE EM, NFE=250 \\
+Last SDE step & 0.04 \\
+\bottomrule
+\end{tabular}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{REPA-specific (default):}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+$\lambda$ & 0.5 \\
+Encoder depth $l$ & 8 \\
+Encoder & DINOv2-B \\
+Similarity & Cos.\ sim. \\
+Projector dim & 2048 \\
+Iterations & 400K / 4M \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.4em}
+\textbf{Compute:}
+\begin{itemize}\setlength{\itemsep}{1pt}
+  \item 8$\times$ NVIDIA H100 80GB
+  \item $\approx$5.4 steps/s (batch=256)
+  \item VAE latents pre-computed
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% App-E+F: Evaluation Details & Baselines
+% ============================================================
+\begin{frame}{Appendix E+F: Evaluation \& Baselines}
+\small
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{Appendix E -- Metrics:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item \textbf{FID}: Fr\'{e}chet Inception Distance (50K samples)
+  \item \textbf{sFID}: spatial FID (patch features)
+  \item \textbf{IS}: Inception Score
+  \item \textbf{Pre./Rec.}: precision \& recall (Kynk\"{a}\"{a}nniemi et al., 2019)
+  \item \textbf{Acc.}: linear probing on ImageNet val
+  \item \textbf{CKNNA}: alignment score (see App.\ C)
+\end{itemize}
+\end{column}
+\begin{column}{0.50\textwidth}
+\textbf{Appendix F -- Baselines:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item \textbf{Pixel diffusion:} ADM, VDM++, Simple diffusion, CDM
+  \item \textbf{Latent U-Net:} LDM
+  \item \textbf{Transformer+U-Net hybrid:} U-ViT-H/2, DiffiT, MDTv2-XL/2
+  \item \textbf{Pure latent DiT:} MaskDiT, SD-DiT, DiT-XL/2, SiT-XL/2
+\end{itemize}
+\vspace{0.3em}
+\textit{All comparisons use the same VAE and evaluation protocol.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% App-G: Detailed Quantitative Results (Table 8)
+% ============================================================
+\begin{frame}{Appendix G: Detailed Results -- Without CFG (Table 8)}
+\small
+\textbf{Model-scale comparison without CFG:}
+
+\vspace{0.3em}
+\begin{center}
+\begin{tabular}{llrrrrrr}
+\toprule
+\textbf{Model} & \textbf{Iter.} & \textbf{FID$\downarrow$} & \textbf{sFID$\downarrow$} & \textbf{IS$\uparrow$} & \textbf{Pre.$\uparrow$} & \textbf{Rec.$\uparrow$} & \textbf{Acc.$\uparrow$} \\
+\midrule
+SiT-B/2 vanilla    & 400K & 33.0 & 6.46 &  43.7 & 0.53 & 0.63 & --- \\
+SiT-B/2+REPA       & 400K & 24.4 & 6.40 &  59.9 & 0.59 & 0.65 & 61.2 \\
+\midrule
+SiT-L/2 vanilla    & 400K & 18.8 & 5.29 &  72.0 & 0.64 & 0.64 & --- \\
+SiT-L/2+REPA       & 400K & 10.0 & 5.20 & 109.2 & 0.69 & 0.65 & 69.4 \\
+\midrule
+SiT-XL/2 vanilla   &  7M  &  8.3 & 6.32 & 131.7 & 0.68 & 0.67 & --- \\
+SiT-XL/2+REPA      & 400K &  7.9 & 5.06 & 122.6 & 0.70 & 0.65 & 70.3 \\
+\textbf{SiT-XL/2+REPA} & \textbf{4M} & \textbf{5.9} & 5.73 & \textbf{157.8} & \textbf{0.70} & \textbf{0.69} & \textbf{74.6} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.3em}
+\textbf{Note:} REPA+SiT-XL/2 at 400K iterations already surpasses vanilla SiT-XL/2 trained for 7M iterations.
+\end{frame}
+
+% ============================================================
+% App-G2: CFG Results (Tables 9-10)
+% ============================================================
+\begin{frame}{Appendix G: Detailed Results -- With CFG (Tables 9--10)}
+\small
+\textbf{SiT-XL/2+REPA, 4M iterations, with guidance interval (Kynk\"{a}\"{a}nniemi et al., 2024):}
+
+\vspace{0.4em}
+\textbf{Best result (Table 9):} interval$=[0,\,0.7]$, $w=1.80$:
+\begin{center}
+\begin{tabular}{crrrrr}
+\toprule
+\textbf{Interval} & \textbf{FID$\downarrow$} & \textbf{sFID$\downarrow$} & \textbf{IS$\uparrow$} & \textbf{Pre.$\uparrow$} & \textbf{Rec.$\uparrow$} \\
+\midrule
+$[0,\,0.7]$, $w=1.80$ & \textbf{1.42} & 4.70 & 305.7 & 0.80 & 0.64 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.5em}
+\textbf{Guidance interval:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Apply CFG only within the noise range $[t_{\text{low}}, t_{\text{high}}]$
+  \item Reduces artifacts from over-guidance at low noise levels
+  \item SDE sampler + interval $[0, 0.7]$ + $w=1.80$ $\Rightarrow$ \textbf{FID = 1.42} (state-of-the-art)
+\end{itemize}
+\end{frame}
+
+% ============================================================
+% App-J: ImageNet 512x512 (Appendix J)
+% ============================================================
+\begin{frame}{Appendix J: ImageNet 512$\times$512}
+\small
+\textbf{Setup:} SD-VAE encodes to $64{\times}64{\times}4$ latent (1024 tokens); DINOv2 input resized to $448{\times}448$.
+
+\vspace{0.3em}
+\textbf{Table 11: System-level comparison on ImageNet 512$\times$512} (CFG $w{=}1.35$):
+
+\vspace{0.2em}
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Model} & \textbf{Epochs} & \textbf{FID$\downarrow$} & \textbf{sFID$\downarrow$} & \textbf{IS$\uparrow$} & \textbf{Pre.$\uparrow$} \\
+\midrule
+MaskDiT       & 800 & 2.50 & 5.10 & 256.3 & 0.83 \\
+DiT-XL/2      & 600 & 3.04 & 5.02 & 240.8 & 0.84 \\
+SiT-XL/2      & 600 & 2.62 & 4.18 & 252.2 & 0.84 \\
+\midrule
+\textbf{+REPA} &  80 & 2.44 & 4.21 & 247.3 & 0.84 \\
+\textbf{+REPA} & 100 & 2.32 & 4.16 & 255.7 & 0.84 \\
+\textbf{+REPA} & \textbf{200} & \textbf{2.08} & 4.19 & \textbf{274.6} & 0.83 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.3em}
+\textbf{Key finding:} REPA at \textbf{200 epochs} surpasses vanilla SiT-XL/2 at \textbf{600 epochs} -- \textbf{$>$3$\times$ fewer training iterations}.
+\end{frame}
+
+% ============================================================
+% App-K: Text-to-Image (Appendix K)
+% ============================================================
+\begin{frame}{Appendix K: Text-to-Image Generation (MS-COCO)}
+\small
+\begin{columns}[T]
+\begin{column}{0.47\textwidth}
+\textbf{Setup:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Model: \textbf{MMDiT} (Multi-Modal DiT)
+  \item Visual encoder: DINOv2-ViT-B (frozen)
+  \item Text encoder: CLIP (frozen)
+  \item Dataset: MS-COCO (train/val)
+  \item 150K iterations, batch=256
+  \item Hidden=768, depth=24
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Key results:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item ODE: FID $6.05 \to \mathbf{4.73}$
+  \item SDE: FID $5.30 \to \mathbf{4.14}$
+  \item Effective \textbf{independently} of text conditioning
+\end{itemize}
+\end{column}
+\begin{column}{0.51\textwidth}
+\textbf{Table 12: MS-COCO FID} (CFG $w{=}2.0$):
+
+\vspace{0.3em}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Method} & \textbf{Type} & \textbf{FID$\downarrow$} \\
+\midrule
+U-ViT-S/2       & Diffusion & 5.95 \\
+U-ViT-S/2 Deep  & Diffusion & 5.48 \\
+\midrule
+MMDiT (ODE)     & Diffusion & 6.05 \\
+\textbf{MMDiT+REPA} (ODE) & Diffusion & \textbf{4.73} \\
+MMDiT (SDE)     & Diffusion & 5.30 \\
+\textbf{MMDiT+REPA} (SDE) & Diffusion & \textbf{4.14} \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.5em}
+\textit{REPA is architecture-agnostic \\
+and task-agnostic.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% App-L: Feature Map Visualization (PCA)
+% ============================================================
+\begin{frame}{Appendix L: Feature Map Visualization (PCA)}
+\small
+\textbf{PCA visualization similar to DINOv2 -- analyzing features by layer and timestep:}
+
+\vspace{0.4em}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\textbf{With REPA (SiT-XL/2+REPA):}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Early layers (1--6): \textbf{coarse}, high-level semantic features
+  \item Later layers (14--28): \textbf{fine-grained}, local detail features
+  \item Clear coarse-to-fine pattern at all timesteps $t$
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{Without REPA (Vanilla):}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Features are \textbf{noisy} at large $t$ ($t=0.7, 0.9$)
+  \item No clear hierarchical structure
+  \item Weak representation alignment
+\end{itemize}
+\end{column}
+\end{columns}
+
+\vspace{0.5em}
+\textbf{Figure 38:} layers $\{1,2,3,4,5,6,7,14,21,28\}$ at $t \in \{0.5, 0.7, 0.9\}$ -- REPA learns SSL-like coarse-to-fine features; vanilla shows noisy, unstructured features.
+\end{frame}
+
+% ============================================================
+% App-M: Limitations & Future Work
+% ============================================================
+\begin{frame}{Appendix M: Limitations \& Future Work}
+\small
+\textbf{Current limitations of REPA:}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Requires access to a pretrained SSL encoder (additional dependency)
+  \item Primarily demonstrated on ImageNet -- scaling to diverse domains needs study
+  \item Projector MLP adds a small training overhead (discarded at inference)
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Four future research directions (Appendix M):}
+\begin{enumerate}\setlength{\itemsep}{3pt}
+  \item \textbf{Alignment depth analysis:} theoretical understanding of why layer 8 is optimal
+  \item \textbf{Broader data types:} pixel-level, video, large-scale T2I at scale
+  \item \textbf{Theoretical analysis:} relationship between instance discrimination and denoising
+  \item \textbf{Time-varying REPA:} weight function $\lambda(t)$ varying with the noise schedule
+\end{enumerate}
+\end{frame}
+
 % ============================================================
 % SLIDE 28: Thank You
 % ============================================================
@@ -744,337 +1233,4 @@ Same noise, same sampler, same steps. REPA produces recognizable images much ear
 \end{center}
 \end{frame}
 
-% ############################################################
-\appendix
-\section*{Appendix}
-% ############################################################
-
-% ============================================================
-% SLIDE A1: Training Hyperparameters
-% ============================================================
-\begin{frame}{Appendix: Training Hyperparameters}
-\small
-\begin{columns}[T]
-\begin{column}{0.48\textwidth}
-\begin{tabular}{ll}
-\toprule
-\textbf{Hyperparameter} & \textbf{Value} \\
-\midrule
-Optimizer & AdamW \\
-Learning rate & $10^{-4}$ (constant) \\
-Betas & $(0.9,\, 0.999)$ \\
-Weight decay & 0 \\
-Batch size & 256 \\
-Max steps & 400K / 7M \\
-Mixed precision & FP16 \\
-EMA decay & 0.9999 \\
-Grad clipping & norm $\leq 1.0$ \\
-Path type & Linear \\
-Prediction & v-prediction \\
-Weighting & Uniform \\
-CFG dropout & 0.1 \\
-\bottomrule
-\end{tabular}
-\end{column}
-\begin{column}{0.48\textwidth}
-\textbf{REPA-specific:}
-\begin{tabular}{ll}
-\toprule
-\textbf{Parameter} & \textbf{Value} \\
-\midrule
-$\lambda$ (align coeff.) & 0.5 \\
-Encoder depth $l$ & 8 \\
-Projector dim & 2048 \\
-Encoder & DINOv2-ViT-B \\
-\bottomrule
-\end{tabular}
-
-\vspace{0.8em}
-\textbf{Notes:}
-\begin{itemize}\setlength{\itemsep}{1pt}
-  \item Projector discarded at inference
-  \item Encoder frozen throughout
-  \item EMA for final evaluation
-\end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-% ============================================================
-% SLIDE A2: Model Configurations
-% ============================================================
-\begin{frame}{Appendix: Model Configurations}
-\begin{center}
-\begin{tabular}{lccccc}
-\toprule
-\textbf{Model} & \textbf{Depth} & \textbf{Hidden} & \textbf{Heads} & \textbf{Patch} & \textbf{Params} \\
-\midrule
-SiT-B/2 & 12 & 768 & 12 & 2 & $\sim$130M \\
-SiT-L/2 & 24 & 1024 & 16 & 2 & $\sim$458M \\
-SiT-XL/2 & 28 & 1152 & 16 & 2 & $\sim$675M \\
-\midrule
-\multicolumn{6}{l}{\textit{Pretrained Encoders (frozen):}} \\
-DINOv2-ViT-B & 12 & 768 & 12 & 14 & $\sim$86M \\
-DINOv2-ViT-L & 24 & 1024 & 16 & 14 & $\sim$304M \\
-DINOv2-ViT-g & 40 & 1536 & 24 & 14 & $\sim$1.1B \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\vspace{0.5em}
-\textbf{Resolution:} 256$\times$256 images, encoded to 32$\times$32 latent (VAE) \\
-\textbf{Latent channels:} 4 (SD-VAE-ft-mse) \\
-\textbf{Number of patches:} $32/2 = 16 \Rightarrow 16 \times 16 = 256$ patch tokens
-\end{frame}
-
-% ============================================================
-% SLIDE A3: Projector MLP Detail + Code
-% ============================================================
-\begin{frame}[fragile]{Appendix: Projector MLP Architecture}
-\textbf{3-layer MLP with SiLU activation} (used during training only):
-
-\vspace{0.5em}
-\begin{center}
-\resizebox{\textwidth}{!}{%
-\begin{tikzpicture}[scale=1.0, transform shape,
-  block/.style={draw, rounded corners, fill=#1, minimum width=2.4cm, minimum height=0.65cm, font=\small, align=center},
-  dim/.style={font=\scriptsize, gray, align=center},
-  arr/.style={->, thick}
-]
-  \node[block=gray!15] (in)  at (0,   0) {$h^{(l)}$};
-  \node[dim, below=0.05cm of in] {$d=1152$};
-
-  \node[block=blue!15]  (l1) at (3,   0) {Linear\\$1152{\to}2048$};
-  \node[block=green!15] (a1) at (5.8, 0) {SiLU};
-  \node[block=blue!15]  (l2) at (8.6, 0) {Linear\\$2048{\to}2048$};
-  \node[block=green!15] (a2) at (11.4,0) {SiLU};
-  \node[block=blue!15]  (l3) at (14.2,0) {Linear\\$2048{\to}768$};
-  \node[block=red!15]   (out)at (17.2,0) {$\tilde{z}$};
-  \node[dim, below=0.05cm of out] {$d_z=768$};
-
-  \draw[arr] (in)  -- (l1);
-  \draw[arr] (l1) -- (a1);
-  \draw[arr] (a1) -- (l2);
-  \draw[arr] (l2) -- (a2);
-  \draw[arr] (a2) -- (l3);
-  \draw[arr] (l3) -- (out);
-\end{tikzpicture}%
-}%
-\end{center}
-
-\vspace{0.5em}
-\begin{columns}[T]
-\begin{column}{0.48\textwidth}
-\textbf{Key properties:}
-\begin{itemize}\setlength{\itemsep}{2pt}
-  \item Trainable parameters: $\sim$8M extra
-  \item \textbf{Discarded at inference} -- no speed penalty
-  \item Applied only to the first $l$ layers' output
-\end{itemize}
-\end{column}
-\begin{column}{0.48\textwidth}
-\textbf{Normalization:}
-\begin{itemize}\setlength{\itemsep}{2pt}
-  \item Both $\tilde{z}$ and $z$ are L2-normalized before cosine similarity
-  \item Scale-invariant loss, direction only
-\end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-% ============================================================
-% SLIDE A4: Ablation -- Alignment Layer Depth
-% ============================================================
-\begin{frame}{Ablation: Which Layer to Align? (Encoder Depth $l$)}
-\small
-\begin{center}
-\begin{tabular}{lcccc}
-\toprule
-\textbf{Encoder Depth} $l$ & \textbf{FID-50K $\downarrow$} & \textbf{IS $\uparrow$} & \textbf{Linear Acc. $\uparrow$} & \textbf{Notes} \\
-\midrule
-Vanilla (no REPA) & 52.3 & --- & 40.2 & Baseline \\
-$l = 2$ & 36.4 & --- & 55.8 & Too shallow \\
-$l = 4$ & 28.1 & --- & 62.3 & Better but not optimal \\
-$l = 8$ & \textbf{23.8} & --- & \textbf{66.1} & \textbf{Best (default)} \\
-$l = 12$ & 26.5 & --- & 63.7 & Slightly worse \\
-$l = 16$ & 31.2 & --- & 59.4 & Too deep \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\vspace{0.5em}
-\textbf{Key findings:}
-\begin{itemize}\setlength{\itemsep}{2pt}
-  \item \textbf{Layer 8} is the sweet spot for SiT-XL/2 (28 blocks)
-  \item Too shallow ($l=2$): not enough capacity before alignment point
-  \item Too deep ($l=16$): later layers don't have enough room for generation-specific processing
-  \item Rule of thumb: align at $\sim$25--30\% of total depth
-\end{itemize}
-\end{frame}
-
-% ============================================================
-% SLIDE A5: Ablation -- Alignment Coefficient Lambda
-% ============================================================
-\begin{frame}{Ablation: Alignment Coefficient $\lambda$}
-\small
-\begin{center}
-\begin{tabular}{lccc}
-\toprule
-\textbf{$\lambda$} & \textbf{FID-50K $\downarrow$} & \textbf{Linear Acc. $\uparrow$} & \textbf{Notes} \\
-\midrule
-$\lambda = 0$ & 52.3 & 40.2 & Vanilla (no REPA) \\
-$\lambda = 0.1$ & 32.7 & 58.3 & Mild alignment \\
-$\lambda = 0.25$ & 26.1 & 63.5 & Good \\
-$\lambda = 0.5$ & \textbf{23.8} & \textbf{66.1} & \textbf{Default} \\
-$\lambda = 1.0$ & 24.5 & 65.8 & Slightly aggressive \\
-$\lambda = 2.0$ & 27.3 & 64.2 & Too strong \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\vspace{0.5em}
-\textbf{Key findings:}
-\begin{itemize}\setlength{\itemsep}{2pt}
-  \item $\lambda = 0.5$ provides the best balance between denoising and alignment
-  \item Even small $\lambda$ gives a significant boost over vanilla
-  \item Too large $\lambda$ overweights alignment $\Rightarrow$ hurts generation quality
-  \item REPA is \textbf{robust} across a wide range ($\lambda \in [0.25, 1.0]$)
-\end{itemize}
-\end{frame}
-
-% ============================================================
-% SLIDE A6: Ablation -- Loss Function Variants
-% ============================================================
-\begin{frame}{Ablation: Loss Function Variants}
-\small
-\textbf{What type of alignment loss works best?}
-
-\vspace{0.5em}
-\begin{center}
-\begin{tabular}{lccc}
-\toprule
-\textbf{Loss Type} & \textbf{Formula} & \textbf{FID $\downarrow$} & \textbf{Linear Acc.} \\
-\midrule
-\textbf{Cosine sim.} (REPA) & $-\langle \bar{\tilde{z}}, \bar{z} \rangle$ & \textbf{23.8} & \textbf{66.1} \\
-MSE & $\|\tilde{z} - z\|^2$ & 28.4 & 62.7 \\
-Smooth L1 & smooth-$\ell_1$($\tilde{z}$, $z$) & 27.9 & 63.1 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\vspace{0.5em}
-\textbf{Why cosine similarity?}
-\begin{itemize}\setlength{\itemsep}{2pt}
-  \item Normalization makes the loss \textbf{scale-invariant}
-  \item Focuses on \textbf{directional alignment}, not magnitude
-  \item More stable training -- avoids magnitude mismatch between different encoder spaces
-  \item Consistent with self-supervised learning objectives (e.g., DINO, BYOL)
-\end{itemize}
-\end{frame}
-
-% ============================================================
-% SLIDE A7: Text-to-Image Extension
-% ============================================================
-\begin{frame}{Appendix: Extension to Text-to-Image Generation}
-\small
-\textbf{REPA also works for text-to-image generation} (MS-COCO):
-
-\vspace{0.5em}
-\begin{columns}[T]
-\begin{column}{0.55\textwidth}
-\textbf{Setup:}
-\begin{itemize}\setlength{\itemsep}{2pt}
-  \item Model: U-ViT architecture
-  \item Encoder: DINOv2-ViT-B (frozen)
-  \item Text conditioning: CLIP text encoder
-  \item Dataset: MS-COCO (256$\times$256)
-\end{itemize}
-
-\vspace{0.5em}
-\textbf{Result:}
-\begin{itemize}\setlength{\itemsep}{2pt}
-  \item Significant FID improvement over vanilla U-ViT
-  \item Faster convergence (similar to class-conditional setting)
-  \item REPA is \textbf{architecture-agnostic} and \textbf{task-agnostic}
-\end{itemize}
-\end{column}
-\begin{column}{0.43\textwidth}
-\textbf{Key insight:}
-
-\vspace{0.3em}
-\fbox{
-  \parbox{0.95\textwidth}{
-    \small
-    The representation alignment principle is general: \\[3pt]
-    Any denoising model benefits from aligning its internal features with high-quality external representations, regardless of conditioning type.
-  }
-}
-\end{column}
-\end{columns}
-\end{frame}
-
-% ============================================================
-% SLIDE A8: 512x512 Resolution Results
-% ============================================================
-\begin{frame}{Appendix: Higher Resolution (512$\times$512)}
-\small
-\textbf{REPA scales to higher resolution:}
-
-\vspace{0.5em}
-\begin{center}
-\begin{tabular}{lccc}
-\toprule
-\textbf{Model} & \textbf{Resolution} & \textbf{FID-50K $\downarrow$} & \textbf{Steps} \\
-\midrule
-SiT-XL/2 (vanilla) & $256 \times 256$ & 9.9 & 7M \\
-SiT-XL/2 + REPA & $256 \times 256$ & \textbf{7.9} & 400K \\
-\midrule
-SiT-XL/2 + REPA & $512 \times 512$ & --- & 400K \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\vspace{0.5em}
-\textbf{Implementation details for 512$\times$512:}
-\begin{itemize}\setlength{\itemsep}{2pt}
-  \item Images resized to 512$\times$512, then encoded to 64$\times$64 latent via SD-VAE
-  \item Number of patches: $64/2 = 32 \Rightarrow 32 \times 32 = 1024$ tokens
-  \item DINOv2 input: interpolated to $224 \times (512/256) = 448$ resolution
-  \item Same REPA hyperparameters ($\lambda = 0.5$, $l = 8$) transfer well
-\end{itemize}
-\end{frame}
-
-% ============================================================
-% SLIDE A9: Comparison of Sampling Methods
-% ============================================================
-\begin{frame}{Appendix: Sampling Methods \& Guidance}
-\small
-\textbf{REPA works with different samplers and guidance strategies:}
-
-\vspace{0.5em}
-\begin{center}
-\begin{tabular}{lcccc}
-\toprule
-\textbf{Sampler} & \textbf{Steps} & \textbf{CFG Scale} & \textbf{Guidance Interval} & \textbf{FID $\downarrow$} \\
-\midrule
-\multicolumn{5}{l}{\textit{Without CFG:}} \\
-Euler ODE & 250 & 1.0 & --- & 7.9 \\
-\midrule
-\multicolumn{5}{l}{\textit{With CFG:}} \\
-Euler ODE & 250 & 1.5 & $[0, 1]$ & 2.15 \\
-SDE & 250 & 1.8 & $[0, 0.7]$ & \textbf{1.42} \\
-Heun ODE & 250 & 1.5 & $[0, 1]$ & 1.80 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\vspace{0.5em}
-\textbf{Guidance interval} (Kynk\"a\"anniemi et al., 2024):
-\begin{itemize}\setlength{\itemsep}{2pt}
-  \item Apply CFG only during a specific noise range $[t_{\text{low}}, t_{\text{high}}]$
-  \item SDE sampler + guidance interval $[0, 0.7]$ achieves \textbf{FID = 1.42}
-  \item Reduces artifacts from over-guidance at low noise levels
-\end{itemize}
-\end{frame}
- 
 \end{document}
